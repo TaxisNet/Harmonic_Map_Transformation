@@ -24,7 +24,7 @@ Lo = [0,cumsum(sqrt(sum(diff(obstacle1_points,1,2).^2,1)))];
 NofSo=5*round(NofS*Lo(end)/L(end)); % Number of samples along the obstacle boundary
 to = linspace(0,1,NofSo);
 lo = Lo/Lo(end);
-to = union(to,l);
+to = union(to,lo);
 to = uniquetol(to,1e-12);
 p_boundary{2} = interp1(lo,obstacle1_points',to,'linear');
 % === Obstacle 2 ===
@@ -32,7 +32,7 @@ Lo = [0,cumsum(sqrt(sum(diff(obstacle2_points,1,2).^2,1)))];
 NofSo=5*round(NofS*Lo( end)/L(end)); % Number of samples along the obstacle boundary
 to = linspace(0,1,NofSo);
 lo = Lo/Lo(end);
-to = union(to,l);
+to = union(to,lo);
 to = uniquetol(to,1e-12);
 p_boundary{3} = interp1(lo,obstacle2_points',to,'linear');
 % ==================
