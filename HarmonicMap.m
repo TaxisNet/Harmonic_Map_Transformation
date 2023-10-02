@@ -28,10 +28,98 @@ classdef HarmonicMap < handle
         fig
     end
     
-    methods (Access = private) 
+    methods (Access = private)
+        function frontiers(obj)
+        %3 cases 
+        %1. connected boundary (boundaries{1} is n by 2 matrix)
+        %2. single non connected boundary (boundaries{1} is n by 2 matrix)
+        %3. multiple non connected boundaries (boundaries{1} is cell array of n by 2 matrix)
+            outer_boundary = obj.boundaries{1};
+            min_gap = 1e-5;
+            if(iscell(outer_boundary))
+                %assume that if b.p. is cell then 
+                %is is not all coneected
+                n = length(outer_boundary);
+                new_boundary_points = [];
+                new_len = [];
+                obj.front_indx = zeros(n,1);
+
+                for i = 1:n       
+                    current_boundary = outer_boundary{i};
+                    if (i == n), next_boundary = outer_boundary{1};
+                    else, next_boundary = outer_boundary{i+1};
+                    end
+
+                    len = sqrt(sum(diff(current_boundary,1,1).^2, 2));
+                    total_len = sum(len,1);
+                    NofP = length(current_boundary);
+                    avg_dist = total_len/NofP;
+
+                    front_len = norm(current_boundary(end,:) - next_boundary(1,:));
+                    front_NofS = ceil(front_len/avg_dist);
+
+                    obj.front_indx(i) = length(new_len)+length(len)+1;
+                    new_len = [new_len; 
+                               len; 
+                               avg_dist; 
+                               zeros(front_NofS-3,1); 
+                               avg_dist];
+
+
+                    t = linspace(0,front_len,front_NofS);
+                    front_boundary_points = interp1([0;front_len],...
+                        [current_boundary(end,:); next_boundary(1,:)],...
+                        t,...
+                        'linear'); 
+                    if(i==1)
+                        new_boundary_points = [new_boundary_points;
+                                                current_boundary; 
+                                                front_boundary_points(2:end,:)];
+                    else
+                        new_boundary_points = [new_boundary_points;
+                                                current_boundary(2:end,:); 
+                                                front_boundary_points(2:end,:)];
+                    end
+                end
+                obj.theta = cumsum(new_len,1);
+                obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
+                obj.boundaries{1} = new_boundary_points;
+                obj.outer_boundary = outer_boundary;
+            elseif (norm(outer_boundary(end,:) - outer_boundary(1,:))> min_gap)
+                %make this work with loop
+                len = sqrt(sum(diff(outer_boundary,1,1).^2, 2));
+                total_len =  sum(len,1);
+                NofP = length(outer_boundary);
+                avg_dist = total_len/NofP;
+
+                front_len = norm(outer_boundary(end,:) - outer_boundary(1,:));
+                front_NofS = ceil(front_len/avg_dist);
+
+                new_len = [len; avg_dist; zeros(front_NofS-3,1); avg_dist];
+                obj.front_indx = length(len)+1;
+
+                t = linspace(0,front_len,front_NofS);
+                front_boundary_points = interp1([0;front_len],...
+                    [outer_boundary(end,:); outer_boundary(1,:)],...
+                    t,...
+                    'linear');
+
+                new_boundary_points = [outer_boundary; front_boundary_points(2:end,:)];
+                obj.boundaries{1} = new_boundary_points;
+                obj.theta = cumsum(new_len,1);
+                obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
+                obj.outer_boundary = {outer_boundary};
+            else
+                len = sqrt(sum(diff(outer_boundary,1,1).^2, 2));
+                obj.theta = cumsum(len,1);
+                obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
+                obj.front_indx = [];
+            end
+        end
+           
         function set_states(obj)
             %set states: centers, normals, control_points, outer_lengths, total_elements
-            dist = 1e-16;
+            dist = 1e-5;
         
             obj.centers = cell(1,length( obj.boundaries));
             obj.normals = cell(1,length( obj.boundaries));
@@ -42,12 +130,7 @@ classdef HarmonicMap < handle
                 a =  obj.boundaries{i}(1:end-1,:);
                 b =  obj.boundaries{i}(2:end,:);
         
-                vec = b-a;
-
-                if (i == 1)
-                    lengths = sqrt(sum(vec.^2,2));
-                    obj.outer_lengths = lengths;
-                end
+               
                 obj.centers{i} = 0.5*(a+b);
         
                 if(i == 1)
@@ -60,7 +143,7 @@ classdef HarmonicMap < handle
         
         
                 
-                norm_vec = vec*rot_matrix';
+                norm_vec = (b-a)*rot_matrix';
                 %normalize
                 norm_vec = norm_vec./sqrt(sum(norm_vec.^2,2));
                 obj.normals{i} = norm_vec;
@@ -189,17 +272,17 @@ classdef HarmonicMap < handle
                         -ones(len, 1);
                 end
             end
-         end
+        end
+        
         function solveMap(obj)
             %Solves the transfomation problem and finds
             %the weights Cx,Cy and the positions on inner obstacles
             obj.A = get_aug_mtx(obj, obj.get_geom_mtx(),obj.get_univ_mtx());
             bx = zeros(size(obj.A,1),1);
             by = zeros(size(obj.A,1),1);
-            c_out_len = cumsum(obj.outer_lengths);
-            theta = 2*pi*(c_out_len./c_out_len(end));
-            bx(1:obj.total_elements(1+1)) = cos(theta);%actual centres
-            by(1:obj.total_elements(1+1))= sin(theta);
+            
+            bx(1:obj.total_elements(1+1)) = cos(obj.theta);%actual centres
+            by(1:obj.total_elements(1+1))= sin(obj.theta);
 
             X = linsolve(obj.A,bx);
             Y = linsolve(obj.A,by);
@@ -223,17 +306,19 @@ classdef HarmonicMap < handle
             % each containing m x 2 points that define the boundaries
             % BOUNDARY POINTS MUST BE IN A COUNTER CLOCKWISE ORDER.
             obj.boundaries = boundaries;
-
+            obj.frontiers();
             obj.set_states();
             obj.solveMap();
 
         end
+        
         function setBoundaries(obj,boundaries)
             %recalculates the map
             % boundaries must be  1 x N cell
             % each containing m x 2 points that define the boundaries
             % BOUNDARY POINTS MUST BE IN A COUNTER CLOCKWISE ORDER.
             obj.boundaries = boundaries;
+            obj.frontiers();
             obj.set_states();
             obj.solveMap();
             if ~isempty(obj.fig)
@@ -241,6 +326,7 @@ classdef HarmonicMap < handle
             end
 
         end
+        
         function q = map(obj,x,y)
             %the 2x1 vector q is the mapping of point (x,y) 
             %from workspace to disk space
@@ -281,12 +367,13 @@ classdef HarmonicMap < handle
             v = obj.Cy' * wc_vec;
             q = [u;v];
         end
+        
         function jacob = jacobian(obj,x,y)
             %returns the jacobian point (x,y)
             gradu = [0,0];
             gradv = [0,0];
             for i=1:length(obj.control_points)
-                %use control points ???               
+                             
                 xa = obj.control_points{i}(1:end-1,1);
                 ya = obj.control_points{i}(1:end-1,2);
                 xb = obj.control_points{i}(2:end,1);
@@ -345,12 +432,14 @@ classdef HarmonicMap < handle
             end
             jacob = [gradu; gradv];
         end
+        
         function [q,J] = compute(obj,x,y)
             %returns both the transformed point q
             %and the jacobian of the point (x,y)
             q = obj.map(x,y);
             J = obj.jacobian(x,y);
         end
+        
         function plotMap(obj)
             if isempty(obj.fig)
                 obj.fig = figure();
@@ -375,7 +464,20 @@ classdef HarmonicMap < handle
 
             subplot(121)
             hold on
-            for i = 1:length(obj.boundaries)
+            if isempty(obj.outer_boundary)
+                plot(obj.boundaries{1}(:,1),obj.boundaries{1}(:,2),...
+                   'k-','Linewidth',3)
+            else
+                 plot(obj.boundaries{1}(:,1),obj.boundaries{1}(:,2),...
+                   'r-','Linewidth',1)
+               for i = 1:length(obj.outer_boundary)
+                    plot(obj.outer_boundary{i}(:,1),obj.outer_boundary{i}(:,2),...
+                   'k-','Linewidth',3)
+               end
+               
+            end
+            
+            for i = 2:length(obj.boundaries)
                plot(obj.boundaries{i}(:,1),obj.boundaries{i}(:,2),...
                    'k-','Linewidth',2)
             end
@@ -386,18 +488,18 @@ classdef HarmonicMap < handle
 
 
             subplot(122)
-            c_out_len = cumsum(obj.outer_lengths);
-            theta = 2*pi*(c_out_len./c_out_len(end));
 
             hold on 
-            plot(cos(theta),sin(theta),'k-','LineWidth', 2)
+            plot(cos(obj.theta),sin(obj.theta),'k-','LineWidth', 2)
+            plot(cos(obj.theta(obj.front_indx)),sin(obj.theta(obj.front_indx)),'ro', 'MarkerSize', 6)
             plot(obj.inner_obj_q(:,1),obj.inner_obj_q(:,2), ...
-                'b.','MarkerSize', 15);                
+                'r.','MarkerSize', 15);                
             axis equal
             axis([-1-D 1+D -1-D 1+D])
             box on
             %hold off                
         end
+        
         function [t,p_path,q_path] = navigate(obj,x_0,y_0,x_d,y_d, vis)
             % A safe control scheme to navigate from any point [x_0; y_0]
             %towards a desired point [x_d;y_d] is simply calculated by 
@@ -445,7 +547,7 @@ classdef HarmonicMap < handle
 
                 options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
                 [t,p] = ode15s(@system_kin,[0,10],[x_0;y_0],options);
-                disp(['Elapsed Time: ',num2str(t(end)),' sec'])
+                disp(['Elapsed Time: ',num2str(t(end)),' sec']);
                 x=p(:,1)';
                 y=p(:,2)';
                 len_x = length(x);
@@ -465,7 +567,7 @@ classdef HarmonicMap < handle
                 q_d = obj.map(x_d,y_d);
                 options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
                 [t,p] = ode15s(@system_kin,[0,10],[x_0;y_0],options);
-                disp(['Elapsed Time: ',num2str(t(end)),' sec'])
+                disp(['Elapsed Time: ',num2str(t(end)),' sec']);
                 x=p(:,1)';
                 y=p(:,2)';
                 len_x = length(x);
