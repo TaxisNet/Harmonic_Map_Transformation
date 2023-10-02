@@ -5,7 +5,7 @@ classdef HarmonicMap < handle
         centers;
         normals;
         control_points;
-        outer_lengths;
+        outer_boundary;
         
         %no of elements per boundary
         total_elements;
@@ -15,6 +15,11 @@ classdef HarmonicMap < handle
         %weights 
         Cx;
         Cy;
+        
+        %Outter boundary mapping angle
+        theta;
+        %the frontier indexes in the angle vec (aka theta)
+        front_indx;
         
         %obstacles transform 2xN matrix
         inner_obj_q;
