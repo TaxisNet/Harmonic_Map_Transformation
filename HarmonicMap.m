@@ -19,7 +19,7 @@ classdef HarmonicMap < handle
         %Outter boundary mapping angle
         theta;
         %the frontier indexes in the angle vec (aka theta)
-        front_indx;
+        frontier_q;
         
         %obstacles transform 2xN matrix
         inner_obj_q;
@@ -29,11 +29,12 @@ classdef HarmonicMap < handle
     end
     
     methods (Access = private)
+
         function frontiers(obj)
-        %3 cases 
-        %1. connected boundary (boundaries{1} is n by 2 matrix)
-        %2. single non connected boundary (boundaries{1} is n by 2 matrix)
-        %3. multiple non connected boundaries (boundaries{1} is cell array of n by 2 matrix)
+            %3 cases 
+            %1. connected boundary (boundaries{1} is n by 2 matrix)
+            %2. single non connected boundary (boundaries{1} is n by 2 matrix)
+            %3. multiple non connected boundaries (boundaries{1} is cell array of n by 2 matrix)
             outer_boundary = obj.boundaries{1};
             min_gap = 1e-5;
             if(iscell(outer_boundary))
@@ -42,7 +43,7 @@ classdef HarmonicMap < handle
                 n = length(outer_boundary);
                 new_boundary_points = [];
                 new_len = [];
-                obj.front_indx = zeros(n,1);
+                front_indx = zeros(n,1);
 
                 for i = 1:n       
                     current_boundary = outer_boundary{i};
@@ -58,7 +59,7 @@ classdef HarmonicMap < handle
                     front_len = norm(current_boundary(end,:) - next_boundary(1,:));
                     front_NofS = ceil(front_len/avg_dist);
 
-                    obj.front_indx(i) = length(new_len)+length(len)+1;
+                    front_indx(i) = length(new_len)+length(len)+1;
                     new_len = [new_len; 
                                len; 
                                avg_dist; 
@@ -83,6 +84,7 @@ classdef HarmonicMap < handle
                 end
                 obj.theta = cumsum(new_len,1);
                 obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
+                obj.frontier_q = [cos(obj.theta(front_indx)),sin(obj.theta(front_indx))] ;
                 obj.boundaries{1} = new_boundary_points;
                 obj.outer_boundary = outer_boundary;
             elseif (norm(outer_boundary(end,:) - outer_boundary(1,:))> min_gap)
@@ -96,8 +98,8 @@ classdef HarmonicMap < handle
                 front_NofS = ceil(front_len/avg_dist);
 
                 new_len = [len; avg_dist; zeros(front_NofS-3,1); avg_dist];
-                obj.front_indx = length(len)+1;
-
+                front_indx = length(len)+1;
+                
                 t = linspace(0,front_len,front_NofS);
                 front_boundary_points = interp1([0;front_len],...
                     [outer_boundary(end,:); outer_boundary(1,:)],...
@@ -108,12 +110,13 @@ classdef HarmonicMap < handle
                 obj.boundaries{1} = new_boundary_points;
                 obj.theta = cumsum(new_len,1);
                 obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
+                obj.frontier_q = [cos(obj.theta(front_indx)),sin(obj.theta(front_indx))] ;
                 obj.outer_boundary = {outer_boundary};
             else
                 len = sqrt(sum(diff(outer_boundary,1,1).^2, 2));
                 obj.theta = cumsum(len,1);
                 obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
-                obj.front_indx = [];
+                obj.frontier_q = zeros(0,2);
             end
         end
            
@@ -327,11 +330,11 @@ classdef HarmonicMap < handle
 
         end
         
-        function q = map(obj,x,y)
+        function q = map(obj,p)
             %the 2x1 vector q is the mapping of point (x,y) 
             %from workspace to disk space
             
-            xo = x; yo = y; 
+            xo = p(1); yo = p(2); 
             wc_vec = zeros(obj.total_elements(end),1);
 
             for i = 1:length(obj.control_points)
@@ -368,8 +371,9 @@ classdef HarmonicMap < handle
             q = [u;v];
         end
         
-        function jacob = jacobian(obj,x,y)
-            %returns the jacobian point (x,y)
+        function jacob = jacobian(obj,p)
+            %returns the jacobian point p = (x,y)
+            x = p(1); y=p(2);
             gradu = [0,0];
             gradv = [0,0];
             for i=1:length(obj.control_points)
@@ -433,11 +437,11 @@ classdef HarmonicMap < handle
             jacob = [gradu; gradv];
         end
         
-        function [q,J] = compute(obj,x,y)
+        function [q,J] = compute(obj,p)
             %returns both the transformed point q
             %and the jacobian of the point (x,y)
-            q = obj.map(x,y);
-            J = obj.jacobian(x,y);
+            q = obj.map(p);
+            J = obj.jacobian(p);
         end
         
         function plotMap(obj)
@@ -491,7 +495,7 @@ classdef HarmonicMap < handle
 
             hold on 
             plot(cos(obj.theta),sin(obj.theta),'k-','LineWidth', 2)
-            plot(cos(obj.theta(obj.front_indx)),sin(obj.theta(obj.front_indx)),'ro', 'MarkerSize', 6)
+            plot(obj.frontier_q(:,1),obj.frontier_q(:,2),'ro', 'MarkerSize', 6)
             plot(obj.inner_obj_q(:,1),obj.inner_obj_q(:,2), ...
                 'r.','MarkerSize', 15);                
             axis equal
@@ -500,7 +504,7 @@ classdef HarmonicMap < handle
             %hold off                
         end
         
-        function [t,p_path,q_path] = navigate(obj,x_0,y_0,x_d,y_d, vis)
+        function [t,p_path,q_path] = navigate(obj,p_0,p_d, vis)
             % A safe control scheme to navigate from any point [x_0; y_0]
             %towards a desired point [x_d;y_d] is simply calculated by 
             %[ux,uy]=-inv(J(p))*(f(p)-f(p_d)) for any p the belongs
@@ -525,99 +529,174 @@ classdef HarmonicMap < handle
                 obj.plotMap()
 
                 %Starting point
-                [x_0,y_0] = ginput(1);
+                p_0 = ginput(1);
                 obj.fig;
                 subplot(121)
-                plot(x_0,y_0,'ko','MarkerSize', 7)
-                q_0 = obj.map(x_0,y_0);
+                plot(p_0(1),p_0(2),'ko','MarkerSize', 7)
+                q_0 = obj.map(p_0);
                 % q_d is the image of p_d=[x_d;y_d] and J_d is the Jacobian of the mapping
                 subplot(122)
                 plot(q_0(1),q_0(2),'ko','MarkerSize', 7)
 
 
                 %Destination point
-                [x_d,y_d] = ginput(1);
+                p_d = ginput(1);
                 obj.fig;
                 subplot(121)
-                plot(x_d,y_d,'kx','MarkerSize', 10)
-                q_d = obj.map(x_d,y_d);
+                plot(p_d(1),p_d(2),'kx','MarkerSize', 10)
+                q_d = obj.map(p_d);
                 % q_d is the image of p_d=[x_d;y_d]
                 subplot(122)
                 plot(q_d(1),q_d(2),'kx','MarkerSize', 10)
 
                 options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
-                [t,p] = ode15s(@system_kin,[0,10],[x_0;y_0],options);
+                [t,p] = ode15s(@system_kin,[0,10],[p_0(1);p_0(2)],options);
                 disp(['Elapsed Time: ',num2str(t(end)),' sec']);
-                x=p(:,1)';
-                y=p(:,2)';
-                len_x = length(x);
-                q_points = zeros(2,len_x);
-                for i=1:len_x
-                    qtemp = obj.map(x(i), y(i));
-                    q_points(:,i) = qtemp;
+                
+                q_points = zeros(size(p));
+                for i=1:length(p)
+                    qtemp = obj.map(p(i,:));
+                    q_points(i,:) = qtemp';
                 end
 
                 obj.fig;
                 subplot(121)
-                plot(x,y,'k','linewidth',1)
+                plot(p(:,1),p(:,2),'k','linewidth',1)
                 subplot(122)
-                plot(q_points(1,:),q_points(2,:),'r','linewidth',1)
+                plot(q_points(:,1),q_points(:,2),'r','linewidth',1)
             else
-                q_0 = obj.map(x_0,y_0);
-                q_d = obj.map(x_d,y_d);
+                q_0 = obj.map(p_0);
+                q_d = obj.map(p_d);
                 options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
-                [t,p] = ode15s(@system_kin,[0,10],[x_0;y_0],options);
-                disp(['Elapsed Time: ',num2str(t(end)),' sec']);
-                x=p(:,1)';
-                y=p(:,2)';
-                len_x = length(x);
-                q_points = zeros(2,len_x);
-                for i=1:len_x
-                    qtemp = obj.map(x(i), y(i));
-                    q_points(:,i) = qtemp;
+                [t,p] = ode15s(@system_kin,[0,10],p_0,options);
+                disp(['Elapsed Time: ',num2str(t(end)),' seconds']);
+                q_points = zeros(size(p));
+                for i=1:length(p)
+                    qtemp = obj.map(p(i,:));
+                    q_points(i,:) = qtemp;
                 end
                 
-                if (nargin==6 && vis)
+                if (nargin==4 && vis)
                     obj.plotMap()
                     obj.fig;
                     %plot p0 & q0
                     subplot(121)
-                    plot(x_0,y_0,'ko','MarkerSize', 7)
+                    plot(p_0(1),p_0(2),'ko','MarkerSize', 7)
                     subplot(122)
                     plot(q_0(1),q_0(2),'ko','MarkerSize', 7)
                     
                     %plot pd & qd
                     subplot(121)
-                    plot(x_d,y_d,'kx','MarkerSize', 10)
+                    plot(p_d(1),p_d(2),'kx','MarkerSize', 10)
                     subplot(122)
                     plot(q_d(1),q_d(2),'kx','MarkerSize', 10)
                     
                     %plot p path and q path
                     subplot(121)
-                    plot(x,y,'k','linewidth',1)
+                    plot(p(:,1),p(:,2),'k','linewidth',1)
                     subplot(122)
-                    plot(q_points(1,:),q_points(2,:),'r','linewidth',1)
+                    plot(q_points(:,1),q_points(:,2),'r','linewidth',1)
                 end
             end
             p_path = p;
-            q_path = q_points';
-            function dx=system_kin(t,x) 
+            q_path = q_points;
+            function dx=system_kin(~,x) 
                 % The robot kinematics
-                q = obj.map(x(1),x(2));
-                J = obj.jacobian(x(1),x(2));
-
+                [q,J]= obj.compute(x);
                 dx=-inv(J)*(q-q_d);
-                dx = norm([x(1)-x_d,x(2)-y_d])*dx/(norm(dx)+0.001);             
+                %dx = norm([x(1)-p_d(1),x(2)-p_d(2)])*dx/(norm(dx)+0.001);
+                dx = dx/(norm(dx)+0.001);
             end
             
-            function [value,isterminal,direction] = my_event(t,x) 
+            function [value,isterminal,direction] = my_event(~,x) 
                 % Event function to detect when we have arrived closed to the desired point 
                 %and terminate earlier the simulation
                 
-                value = norm([x(1)-x_d;x(2)-y_d])-1e-2;
+                value = norm([x(1)-p_d(1);x(2)-p_d(2)])-1e-2;
                 isterminal = 1;
                 direction = -1;
             end
+        end
+
+        function [t,p_path,q_path] = explore(obj,p_0, vis)
+            % A safe control scheme to navigate from any point [x_0; y_0]
+            %towards a desired point [x_d;y_d] is simply calculated by 
+            %[ux,uy]=-inv(J(p))*(f(p)-f(p_d)) for any p the belongs
+            %to the interior of the workspace.
+            %
+            %Outputs:
+            %t is time vector,
+            %p_path is the nx2 matrix of points in the workspace path that 
+            %correspond to t 
+            %and q_path is the nx2 matrix of the transformed points 
+            %in diskspace.
+            %
+            %Inputs: 
+            %1. obj.navigation() makes you choose start and
+            %destination points on the workspace plot (left).
+            %2. obj.navigation(x_0,y_0,x_d,y_d) finds the paths without any
+            %visual plots.
+            %3. obj.navigate(obj,x_0,y_0,x_d,y_d, vis) does the same as 2
+            %but also visualizes in the map plot if vis is true.
+            if isempty(obj.frontier_q)
+                disp('Map fully explored!')
+                return
+            end
+            q_d = obj.frontier_q(1,:)';
+            q_0 = obj.map(p_0);
+            
+            options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
+            [t,p] = ode15s(@system_kin,[0,10],p_0,options);
+            disp(['Elapsed Time: ',num2str(t(end)),' seconds']);
+            q_points = zeros(size(p));
+            for i=1:length(p)
+                qtemp = obj.map(p(i,:));
+                q_points(i,:) = qtemp;
+            end
+            
+            if (nargin==3 && vis)
+                obj.plotMap()
+                obj.fig;
+                %plot p0 & q0
+                subplot(121)
+                plot(p_0(1),p_0(2),'ko','MarkerSize', 7)
+                subplot(122)
+                plot(q_0(1),q_0(2),'ko','MarkerSize', 7)
+                
+                %plot pd & qd
+                subplot(121)
+                p_d = p(end,:);
+                plot(p_d(1),p_d(2),'kx','MarkerSize', 10)
+                subplot(122)
+                plot(q_d(1),q_d(2),'kx','MarkerSize', 10)
+                
+                %plot p path and q path
+                subplot(121)
+                plot(p(:,1),p(:,2),'k','linewidth',1)
+                subplot(122)
+                plot(q_points(:,1),q_points(:,2),'r','linewidth',1)
+            end
+
+        p_path = p;
+        q_path = q_points;
+
+
+        function dx=system_kin(~,x) 
+            % The robot kinematics
+            [q,J]= obj.compute(x);
+            dx=-inv(J)*(q-q_d);
+            %normize 
+            dx =dx/(norm(dx)+0.001);             
+        end
+        
+        function [value,isterminal,direction] = my_event(~,x) 
+            % Event function to detect when we have arrived closed to the desired point 
+            %and terminate earlier the simulation
+            q = obj.map(x);
+            value = norm([q(1)-q_d(1);q(2)-q_d(2)])-5e-2;
+            isterminal = 1;
+            direction = -1;
+        end
         end
     end
 end

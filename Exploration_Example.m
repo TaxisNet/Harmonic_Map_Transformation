@@ -20,12 +20,15 @@ wall = interp1(lo,wall',to,'linear');
 
 % 
 % 
-tic
+
 hm = HarmonicMap({box});
 hm.plotMap();
-toc
 
-pause(5)
+
+%works
+hm.explore([0.9 ; 0.9],1)
+
 
 hm.setBoundaries({{box, wall}});
-hm.navigate(0,0,-0.6,-0.99    , true);
+hm.explore([0;0],1)
+

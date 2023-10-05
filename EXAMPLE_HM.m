@@ -47,8 +47,8 @@ hm.plotMap()
 
 %map point p to diskspace and find its jacobian
 p = [0.8;0.8];
-q = hm.map(p(1),p(2));
-J = hm.jacobian(p(1),p(2));
+q = hm.map(p);
+J = hm.jacobian(p);
 %or use [q,J] = hm.compute(p(1),p(2))
 hm.fig;
 subplot(121)
@@ -63,7 +63,7 @@ input('Press any key to continue');
 visualize = true;
 p_0 = [0.2;0.8];
 p_d= [0.9;0.1];
-[t,p_path,q_path] = hm.navigate(p_0(1),p_0(2),p_d(1),p_d(2),visualize);
+[t,p_path,q_path] = hm.navigate(p_0,p_d,visualize);
 
 input('Press any key to continue');
 
