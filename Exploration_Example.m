@@ -26,9 +26,9 @@ hm.plotMap();
 
 
 %works
-hm.explore([0.9 ; 0.9],1)
+hm.explore([0.9 ; 0.9],1);
 
 
 hm.setBoundaries({{box, wall}});
-hm.explore([0;0],1)
+hm.explore([0;0],1);
 
