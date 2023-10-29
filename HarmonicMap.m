@@ -55,7 +55,7 @@ classdef HarmonicMap < handle
                 upscaledBoundary{i} = interp1(len,currentBoundary,t,'linear');
 
                 if(i==1)
-                    upscaledCumulativeLen = [0; cumsum(sqrt(sum(diff(upscaledBoundary{i} ,1,1).^2, 2)))];
+                    upscaledCumulativeLen = [cumsum(sqrt(sum(diff(upscaledBoundary{i} ,1,1).^2, 2)))];
                     obj.theta = 2*pi*(upscaledCumulativeLen./upscaledCumulativeLen(end));
                 end
             end
@@ -89,12 +89,12 @@ classdef HarmonicMap < handle
                     upscaledIsFree = logical(upscaledIsFree);
 
                     upscaledLen = [0; (sqrt(sum(diff(upscaledBoundary{i} ,1,1).^2, 2)))];
-                    upscaledLen(upscaledIsFree) = 0.0;
+                    upscaledLen(upscaledIsFree) = 0;
                     upscaledCumulativeLen = [cumsum(upscaledLen)];
-                    obj.theta = 2*pi*(upscaledCumulativeLen./upscaledCumulativeLen(end));
+                    obj.theta = 2*pi*(upscaledCumulativeLen(2:end)./upscaledCumulativeLen(end));
 
                     %get angle of tranformed collapsed frontier points q
-                    frontiers_theta = obj.theta(upscaledIsFree);
+                    frontiers_theta = obj.theta(upscaledIsFree(2:end));
                     %clear the duplicate
                     frontiers_theta = uniquetol(frontiers_theta);
 
@@ -436,6 +436,7 @@ classdef HarmonicMap < handle
         end
         
         function [q,J] = compute(obj,p)
+
             %returns both the transformed point q
             %and the jacobian of the point (x,y)
 
@@ -447,6 +448,16 @@ classdef HarmonicMap < handle
             q = obj.map(p);
             J = obj.jacobian(p);
         end
+
+        function v = getFieldVelocity(obj,x,q_d) 
+                % The robot kinematics
+                [q,J]= obj.compute(x);
+                dx=-inv(J)*(q-q_d);
+                %dx = norm([x(1)-p_d(1),x(2)-p_d(2)])*dx/(norm(dx)+0.001);
+                v = dx/(norm(dx)+0.001);
+        end
+
+
         
         function plotMap(obj)
 
