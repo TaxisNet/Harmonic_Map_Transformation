@@ -18,106 +18,90 @@ classdef HarmonicMap < handle
         
         %Outter boundary mapping angle
         theta;
-        %the frontier indexes in the angle vec (aka theta)
-        frontier_q;
+        %the frontier points on the unit circle outter boundary
+        frontiers_q;
         
         %obstacles transform 2xN matrix
         inner_obj_q;
         
         %figure
         fig
+        
+        %this might need tuning
+        SamplesPerUnit = 100;
+        
+        %
+        isMapSolved logical
     end
     
     methods (Access = private)
+        function upscaledBoundaries(obj, lowDefinitionBoundaryCell)
+            %upscales boundaries and calculates theta
+            upscaledBoundary = cell(0);
 
-        function frontiers(obj)
-            %3 cases 
-            %1. connected boundary (boundaries{1} is n by 2 matrix)
-            %2. single non connected boundary (boundaries{1} is n by 2 matrix)
-            %3. multiple non connected boundaries (boundaries{1} is cell array of n by 2 matrix)
-            outer_boundary = obj.boundaries{1};
-            min_gap = 1e-5;
-            if(iscell(outer_boundary))
-                %assume that if b.p. is cell then 
-                %is is not all coneected
-                n = length(outer_boundary);
-                new_boundary_points = [];
-                new_len = [];
-                front_indx = zeros(n,1);
+            for i =1:length(lowDefinitionBoundaryCell)
+                %upscale the boundary
+                currentBoundary = lowDefinitionBoundaryCell{i};
 
-                for i = 1:n       
-                    current_boundary = outer_boundary{i};
-                    if (i == n), next_boundary = outer_boundary{1};
-                    else, next_boundary = outer_boundary{i+1};
-                    end
-
-                    len = sqrt(sum(diff(current_boundary,1,1).^2, 2));
-                    total_len = sum(len,1);
-                    NofP = length(current_boundary);
-                    avg_dist = total_len/NofP;
-
-                    front_len = norm(current_boundary(end,:) - next_boundary(1,:));
-                    front_NofS = ceil(front_len/avg_dist);
-
-                    front_indx(i) = length(new_len)+length(len)+1;
-                    new_len = [new_len; 
-                               len; 
-                               avg_dist; 
-                               zeros(front_NofS-3,1); 
-                               avg_dist];
-
-
-                    t = linspace(0,front_len,front_NofS);
-                    front_boundary_points = interp1([0;front_len],...
-                        [current_boundary(end,:); next_boundary(1,:)],...
-                        t,...
-                        'linear'); 
-                    if(i==1)
-                        new_boundary_points = [new_boundary_points;
-                                                current_boundary; 
-                                                front_boundary_points(2:end,:)];
-                    else
-                        new_boundary_points = [new_boundary_points;
-                                                current_boundary(2:end,:); 
-                                                front_boundary_points(2:end,:)];
-                    end
+                len = [0; cumsum(sqrt(sum(diff(currentBoundary,1,1).^2, 2)))];
+                total_len = len(end);
+                if(i==1)
+                    NofS = round(obj.SamplesPerUnit*total_len);
+                else
+                    NofS = round(0.2*obj.SamplesPerUnit*total_len);
                 end
-                obj.theta = cumsum(new_len,1);
-                obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
-                obj.frontier_q = [cos(obj.theta(front_indx)),sin(obj.theta(front_indx))] ;
-                obj.boundaries{1} = new_boundary_points;
-                obj.outer_boundary = outer_boundary;
-            elseif (norm(outer_boundary(end,:) - outer_boundary(1,:))> min_gap)
-                %make this work with loop
-                len = sqrt(sum(diff(outer_boundary,1,1).^2, 2));
-                total_len =  sum(len,1);
-                NofP = length(outer_boundary);
-                avg_dist = total_len/NofP;
+                t = linspace(0,total_len,NofS);
 
-                front_len = norm(outer_boundary(end,:) - outer_boundary(1,:));
-                front_NofS = ceil(front_len/avg_dist);
+                upscaledBoundary{i} = interp1(len,currentBoundary,t,'linear');
 
-                new_len = [len; avg_dist; zeros(front_NofS-3,1); avg_dist];
-                front_indx = length(len)+1;
-                
-                t = linspace(0,front_len,front_NofS);
-                front_boundary_points = interp1([0;front_len],...
-                    [outer_boundary(end,:); outer_boundary(1,:)],...
-                    t,...
-                    'linear');
-
-                new_boundary_points = [outer_boundary; front_boundary_points(2:end,:)];
-                obj.boundaries{1} = new_boundary_points;
-                obj.theta = cumsum(new_len,1);
-                obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
-                obj.frontier_q = [cos(obj.theta(front_indx)),sin(obj.theta(front_indx))] ;
-                obj.outer_boundary = {outer_boundary};
-            else
-                len = sqrt(sum(diff(outer_boundary,1,1).^2, 2));
-                obj.theta = cumsum(len,1);
-                obj.theta = 2*pi*(obj.theta ./ obj.theta(end));
-                obj.frontier_q = zeros(0,2);
+                if(i==1)
+                    upscaledCumulativeLen = [0; cumsum(sqrt(sum(diff(upscaledBoundary{i} ,1,1).^2, 2)))];
+                    obj.theta = 2*pi*(upscaledCumulativeLen./upscaledCumulativeLen(end));
+                end
             end
+            obj.boundaries = upscaledBoundary;
+        end
+
+        function findFrontiers(obj, lowDefinitionBoundaryCell, isFree)
+            %upscales boundaries, calculates theta AND finds the frontier
+            %points
+            
+            upscaledBoundary = cell(0);
+
+            for i =1:length(lowDefinitionBoundaryCell)
+                %upscale the boundary
+                currentBoundary = lowDefinitionBoundaryCell{i};
+
+                len = [0; cumsum(sqrt(sum(diff(currentBoundary,1,1).^2, 2)))];
+                total_len = len(end);
+                if(i==1)
+                    NofS = round(obj.SamplesPerUnit*total_len);
+                else
+                    NofS = round(0.2*obj.SamplesPerUnit*total_len);
+                end
+                t = linspace(0,total_len,NofS);
+
+                upscaledBoundary{i} = interp1(len,currentBoundary,t,'linear');
+                if(i==1)
+                    %find frontier points for outter boundary
+                    %TODO update transform to incude inner boundarie frontiers
+                    upscaledIsFree = interp1(len, single(isFree{i}),t,"nearest");
+                    upscaledIsFree = logical(upscaledIsFree);
+
+                    upscaledLen = [0; (sqrt(sum(diff(upscaledBoundary{i} ,1,1).^2, 2)))];
+                    upscaledLen(upscaledIsFree) = 0.0;
+                    upscaledCumulativeLen = [cumsum(upscaledLen)];
+                    obj.theta = 2*pi*(upscaledCumulativeLen./upscaledCumulativeLen(end));
+
+                    %get angle of tranformed collapsed frontier points q
+                    frontiers_theta = obj.theta(upscaledIsFree);
+                    %clear the duplicate
+                    frontiers_theta = uniquetol(frontiers_theta);
+
+                    obj.frontiers_q = [cos(frontiers_theta), sin(frontiers_theta)];
+                end
+            end
+            obj.boundaries = upscaledBoundary;
         end
            
         function set_states(obj)
@@ -303,27 +287,30 @@ classdef HarmonicMap < handle
     
     
     methods
-        function obj = HarmonicMap(boundaries)
-            %constructor of map
-            % boundaries must be  1 x N cell
-            % each containing m x 2 points that define the boundaries
-            % BOUNDARY POINTS MUST BE IN A COUNTER CLOCKWISE ORDER.
-            obj.boundaries = boundaries;
-            obj.frontiers();
-            obj.set_states();
-            obj.solveMap();
-
+        function obj = HarmonicMap()
+            obj.isMapSolved = false;
         end
         
-        function setBoundaries(obj,boundaries)
+        function setBoundaries(obj,boundaries, isFree)
             %recalculates the map
             % boundaries must be  1 x N cell
             % each containing m x 2 points that define the boundaries
             % BOUNDARY POINTS MUST BE IN A COUNTER CLOCKWISE ORDER.
-            obj.boundaries = boundaries;
-            obj.frontiers();
+            %Optinal argument: isFreeCell cell array that is the same 
+            %size as boundaries and its elemets are a mx1
+            %logical vector that tell you if the boundary is free
+
+            if(nargin==2)
+                obj.upscaledBoundaries(boundaries);
+            else
+                obj.findFrontiers(boundaries,isFree)
+            end
+
             obj.set_states();
             obj.solveMap();
+
+            obj.isMapSolved = true;
+
             if ~isempty(obj.fig)
                 clf(obj.fig)
             end
@@ -334,6 +321,11 @@ classdef HarmonicMap < handle
             %the 2x1 vector q is the mapping of point (x,y) 
             %from workspace to disk space
             
+            if(~obj.isMapSolved)
+                disp('Set boundaries first!')
+                return
+            end
+
             xo = p(1); yo = p(2); 
             wc_vec = zeros(obj.total_elements(end),1);
 
@@ -373,6 +365,12 @@ classdef HarmonicMap < handle
         
         function jacob = jacobian(obj,p)
             %returns the jacobian point p = (x,y)
+
+            if(~obj.isMapSolved)
+                disp('Set boundaries first!')
+                return
+            end
+
             x = p(1); y=p(2);
             gradu = [0,0];
             gradv = [0,0];
@@ -440,11 +438,23 @@ classdef HarmonicMap < handle
         function [q,J] = compute(obj,p)
             %returns both the transformed point q
             %and the jacobian of the point (x,y)
+
+            if(~obj.isMapSolved)
+                disp('Set boundaries first!')
+                return
+            end
+
             q = obj.map(p);
             J = obj.jacobian(p);
         end
         
         function plotMap(obj)
+
+            if(~obj.isMapSolved)
+                disp('Set boundaries first!')
+                return
+            end
+
             if isempty(obj.fig)
                 obj.fig = figure();
             else
@@ -495,7 +505,7 @@ classdef HarmonicMap < handle
 
             hold on 
             plot(cos(obj.theta),sin(obj.theta),'k-','LineWidth', 2)
-            plot(obj.frontier_q(:,1),obj.frontier_q(:,2),'ro', 'MarkerSize', 6)
+            plot(obj.frontiers_q(:,1),obj.frontiers_q(:,2),'ro', 'MarkerSize', 6)
             plot(obj.inner_obj_q(:,1),obj.inner_obj_q(:,2), ...
                 'r.','MarkerSize', 15);                
             axis equal
@@ -525,6 +535,11 @@ classdef HarmonicMap < handle
             %3. obj.navigate(obj,x_0,y_0,x_d,y_d, vis) does the same as 2
             %but also visualizes in the map plot if vis is true.
             
+            if(~obj.isMapSolved)
+                disp('Set boundaries first!')
+                return
+            end
+
             if (nargin == 1)
                 obj.plotMap()
 
@@ -619,30 +634,20 @@ classdef HarmonicMap < handle
         end
 
         function [t,p_path,q_path] = explore(obj,p_0, vis)
-            % A safe control scheme to navigate from any point [x_0; y_0]
-            %towards a desired point [x_d;y_d] is simply calculated by 
-            %[ux,uy]=-inv(J(p))*(f(p)-f(p_d)) for any p the belongs
-            %to the interior of the workspace.
-            %
-            %Outputs:
-            %t is time vector,
-            %p_path is the nx2 matrix of points in the workspace path that 
-            %correspond to t 
-            %and q_path is the nx2 matrix of the transformed points 
-            %in diskspace.
-            %
-            %Inputs: 
-            %1. obj.navigation() makes you choose start and
-            %destination points on the workspace plot (left).
-            %2. obj.navigation(x_0,y_0,x_d,y_d) finds the paths without any
-            %visual plots.
-            %3. obj.navigate(obj,x_0,y_0,x_d,y_d, vis) does the same as 2
-            %but also visualizes in the map plot if vis is true.
-            if isempty(obj.frontier_q)
+            % TODO change
+
+            if(~obj.isMapSolved)
+                disp('Set boundaries first!')
+                return
+            end
+
+            
+            if isempty(obj.frontiers_q)
                 disp('Map fully explored!')
                 return
             end
-            q_d = obj.frontier_q(1,:)';
+            %maybe use other metric
+            q_d = obj.frontiers_q(1,:)';
             q_0 = obj.map(p_0);
             
             options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
