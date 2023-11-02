@@ -7,6 +7,9 @@ classdef HarmonicMap < handle
         control_points;
         outer_boundary;
         
+        %for plotting frontiers
+        isFree  
+
         %no of elements per boundary
         total_elements;
         
@@ -19,18 +22,25 @@ classdef HarmonicMap < handle
         %Outter boundary mapping angle
         theta;
         %the frontier points on the unit circle outter boundary
-        frontiers_q;
+        frontiers_q = double.empty(0,2);
         
-        %obstacles transform 2xN matrix
-        inner_obj_q;
+        %obstacles transform Nx2 matrix
+        inner_obj_q = double.empty(0,2);
         
         %figure
         fig
+
+        %maximun time for movement simulation
+        maxTime = 10
         
-        %this might need tuning
-        SamplesPerUnit = 100;
+        % Controls samples per unit. Outter has more that inner by 
+        % innerObstacleSampleModifier
+        % this might need tuning
+        samplesPerUnit = 100;
+        innerObstacleSampleModifier = 0.25;
         
-        %
+        
+        %to avoid errors
         isMapSolved logical
     end
     
@@ -46,9 +56,9 @@ classdef HarmonicMap < handle
                 len = [0; cumsum(sqrt(sum(diff(currentBoundary,1,1).^2, 2)))];
                 total_len = len(end);
                 if(i==1)
-                    NofS = round(obj.SamplesPerUnit*total_len);
+                    NofS = round(obj.samplesPerUnit*total_len);
                 else
-                    NofS = round(0.2*obj.SamplesPerUnit*total_len);
+                    NofS = round(obj.innerObstacleSampleModifier*obj.samplesPerUnit*total_len);
                 end
                 t = linspace(0,total_len,NofS);
 
@@ -67,6 +77,7 @@ classdef HarmonicMap < handle
             %points
             
             upscaledBoundary = cell(0);
+            upscaledIsFree = cell(0);
 
             for i =1:length(lowDefinitionBoundaryCell)
                 %upscale the boundary
@@ -75,26 +86,27 @@ classdef HarmonicMap < handle
                 len = [0; cumsum(sqrt(sum(diff(currentBoundary,1,1).^2, 2)))];
                 total_len = len(end);
                 if(i==1)
-                    NofS = round(obj.SamplesPerUnit*total_len);
+                    NofS = round(obj.samplesPerUnit*total_len);
                 else
-                    NofS = round(0.2*obj.SamplesPerUnit*total_len);
+                    NofS = round(obj.innerObstacleSampleModifier*obj.samplesPerUnit*total_len);
                 end
                 t = linspace(0,total_len,NofS);
 
                 upscaledBoundary{i} = interp1(len,currentBoundary,t,'linear');
-                if(i==1)
-                    %find frontier points for outter boundary
-                    %TODO update transform to incude inner boundarie frontiers
-                    upscaledIsFree = interp1(len, single(isFree{i}),t,"nearest");
-                    upscaledIsFree = logical(upscaledIsFree);
+                
+                %find frontier points for outter boundary
+                %TODO update transform to incude inner boundarie frontiers
+                upscaledIsFree{i} = interp1(len, single(isFree{i}),t,"nearest");
+                upscaledIsFree{i} = logical(upscaledIsFree{i});
 
+                if(i==1)
                     upscaledLen = [0; (sqrt(sum(diff(upscaledBoundary{i} ,1,1).^2, 2)))];
-                    upscaledLen(upscaledIsFree) = 0;
+                    upscaledLen(upscaledIsFree{i}) = 0;
                     upscaledCumulativeLen = [cumsum(upscaledLen)];
                     obj.theta = 2*pi*(upscaledCumulativeLen(2:end)./upscaledCumulativeLen(end));
 
                     %get angle of tranformed collapsed frontier points q
-                    frontiers_theta = obj.theta(upscaledIsFree(2:end));
+                    frontiers_theta = obj.theta(upscaledIsFree{i}(2:end));
                     %clear the duplicate
                     frontiers_theta = uniquetol(frontiers_theta);
 
@@ -102,6 +114,7 @@ classdef HarmonicMap < handle
                 end
             end
             obj.boundaries = upscaledBoundary;
+            obj.isFree = upscaledIsFree;
         end
            
         function set_states(obj)
@@ -296,9 +309,9 @@ classdef HarmonicMap < handle
             % boundaries must be  1 x N cell
             % each containing m x 2 points that define the boundaries
             % BOUNDARY POINTS MUST BE IN A COUNTER CLOCKWISE ORDER.
-            %Optinal argument: isFreeCell cell array that is the same 
-            %size as boundaries and its elemets are a mx1
-            %logical vector that tell you if the boundary is free
+            % Optinal argument: isFreeCell cell array that is the same 
+            % size as boundaries and its elemets are a mx1
+            % logical vector that tell you if the boundary is free
 
             if(nargin==2)
                 obj.upscaledBoundaries(boundaries);
@@ -311,7 +324,7 @@ classdef HarmonicMap < handle
 
             obj.isMapSolved = true;
 
-            if ~isempty(obj.fig)
+            if (~isempty(obj.fig) && ~isvalid(obj.fig))
                 clf(obj.fig)
             end
 
@@ -457,7 +470,6 @@ classdef HarmonicMap < handle
                 v = dx/(norm(dx)+0.001);
         end
 
-
         
         function plotMap(obj)
 
@@ -466,7 +478,7 @@ classdef HarmonicMap < handle
                 return
             end
 
-            if isempty(obj.fig)
+            if (isempty(obj.fig) || ~isvalid(obj.fig))
                 obj.fig = figure();
             else
                 clf(obj.fig)
@@ -502,10 +514,16 @@ classdef HarmonicMap < handle
                
             end
             
-            for i = 2:length(obj.boundaries)
+            for i = 1:length(obj.boundaries)
                plot(obj.boundaries{i}(:,1),obj.boundaries{i}(:,2),...
                    'k-','Linewidth',2)
+
+               if(~isempty(obj.isFree))
+                   plot(obj.boundaries{i}(obj.isFree{i},1),obj.boundaries{i}(obj.isFree{i},2),...
+                       '.g', 'MarkerSize',15)
+               end
             end
+
             axis equal
             axis([x_l x_u y_l y_u])
             box on
@@ -575,8 +593,8 @@ classdef HarmonicMap < handle
                 subplot(122)
                 plot(q_d(1),q_d(2),'kx','MarkerSize', 10)
 
-                options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
-                [t,p] = ode15s(@system_kin,[0,10],[p_0(1);p_0(2)],options);
+                options = odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
+                [t,p] = ode15s(@system_kin,[0,obj.maxTime],[p_0(1);p_0(2)],options);
                 disp(['Elapsed Time: ',num2str(t(end)),' sec']);
                 
                 q_points = zeros(size(p));
@@ -594,7 +612,7 @@ classdef HarmonicMap < handle
                 q_0 = obj.map(p_0);
                 q_d = obj.map(p_d);
                 options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
-                [t,p] = ode15s(@system_kin,[0,10],p_0,options);
+                [t,p] = ode15s(@system_kin,[0,obj.maxTime],p_0,options);
                 disp(['Elapsed Time: ',num2str(t(end)),' seconds']);
                 q_points = zeros(size(p));
                 for i=1:length(p)
@@ -662,7 +680,7 @@ classdef HarmonicMap < handle
             q_0 = obj.map(p_0);
             
             options=odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
-            [t,p] = ode15s(@system_kin,[0,10],p_0,options);
+            [t,p] = ode15s(@system_kin,[0,obj.maxTime],p_0,options);
             disp(['Elapsed Time: ',num2str(t(end)),' seconds']);
             q_points = zeros(size(p));
             for i=1:length(p)
