@@ -324,7 +324,7 @@ classdef HarmonicMap < handle
 
             obj.isMapSolved = true;
 
-            if (~isempty(obj.fig) && ~isvalid(obj.fig))
+            if (~isempty(obj.fig) && isvalid(obj.fig))
                 clf(obj.fig)
             end
 
