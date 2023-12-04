@@ -27,6 +27,6 @@ small_box_isFree = false(sz);
 
 hm = HarmonicMap();
 hm.setBoundaries({box,small_box}, {box_isFree, small_box_isFree})
-hm.plotMap();
+hm.explore([0;-0.5],true);
 
 

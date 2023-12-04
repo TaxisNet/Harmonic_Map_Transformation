@@ -4,14 +4,13 @@ classdef HarmonicMap < handle
         boundaries;
         centers;
         normals;
-        control_points;
-        outer_boundary;
+        controlPoints;
         
         %for plotting frontiers
         isFree  
 
         %no of elements per boundary
-        total_elements;
+        totalElements;
         
         %augmented matrix
         A;
@@ -25,7 +24,7 @@ classdef HarmonicMap < handle
         frontiers_q = double.empty(0,2);
         
         %obstacles transform Nx2 matrix
-        inner_obj_q = double.empty(0,2);
+        innerObst_q = double.empty(0,2);
         
         %figure
         fig
@@ -123,7 +122,7 @@ classdef HarmonicMap < handle
         
             obj.centers = cell(1,length( obj.boundaries));
             obj.normals = cell(1,length( obj.boundaries));
-            obj.control_points = cell(1,length( obj.boundaries));
+            obj.controlPoints = cell(1,length( obj.boundaries));
             
             for i = 1:length( obj.boundaries)
                 
@@ -155,28 +154,28 @@ classdef HarmonicMap < handle
                 %last & first point have the same normal
                 point_normals = [point_normals; point_normals(1,:)];
                     
-                obj.control_points{i} =  obj.boundaries{i}-dist*point_normals;
+                obj.controlPoints{i} =  obj.boundaries{i}-dist*point_normals;
                 
             end
-            obj.total_elements = [0 cumsum(cellfun(@length,obj.centers))];
+            obj.totalElements = [0 cumsum(cellfun(@length,obj.centers))];
                 
         end
 
         function geom_mtx = get_geom_mtx(obj)
             %calculate geometry matrix
 
-            geom_mtx = zeros(obj.total_elements(end));
+            geom_mtx = zeros(obj.totalElements(end));
 
-            for i = 1:length(obj.control_points)
-                for j = 1:length(obj.control_points{i})-1
-                    pa = obj.control_points{i}(j,:);
-                    pb = obj.control_points{i}(j+1,:);
+            for i = 1:length(obj.controlPoints)
+                for j = 1:length(obj.controlPoints{i})-1
+                    pa = obj.controlPoints{i}(j,:);
+                    pb = obj.controlPoints{i}(j+1,:);
                     vec = pb - pa;
                     a = vec(1); b = vec(2);
                     a2b2 = a^2 + b^2;
                     len = sqrt(a2b2);
                     for k = 1:length(obj.centers)
-                        points((obj.total_elements(k)+1):obj.total_elements(k+1),:)...
+                        points((obj.totalElements(k)+1):obj.totalElements(k+1),:)...
                             = obj.centers{k};
                     end
                         %points is 2 vectors of all points p* 
@@ -198,7 +197,7 @@ classdef HarmonicMap < handle
                             -2.0;
                         wc = wc*len;
 
-                        geom_mtx(:,obj.total_elements(i)+j) = wc;
+                        geom_mtx(:,obj.totalElements(i)+j) = wc;
 
                 end
             end
@@ -206,18 +205,18 @@ classdef HarmonicMap < handle
 
         function univ_mtx = get_univ_mtx(obj)
             %calculate universe matrix
-            univ_mtx = zeros(length(obj.centers)-1,  obj.total_elements(end));
+            univ_mtx = zeros(length(obj.centers)-1,  obj.totalElements(end));
 
             if isempty(univ_mtx)
                 return 
             end
 
-            for i = 1:length(obj.control_points)
-                for j = 1: length(obj.control_points{i})-1
-                    xa = obj.control_points{i}(j,1);
-                    ya = obj.control_points{i}(j,2);
-                    xb = obj.control_points{i}(j+1,1);
-                    yb = obj.control_points{i}(j+1,2);
+            for i = 1:length(obj.controlPoints)
+                for j = 1: length(obj.controlPoints{i})-1
+                    xa = obj.controlPoints{i}(j,1);
+                    ya = obj.controlPoints{i}(j,2);
+                    xb = obj.controlPoints{i}(j+1,1);
+                    yb = obj.controlPoints{i}(j+1,2);
 
                     a = xb - xa; b = yb - ya;
 
@@ -243,7 +242,7 @@ classdef HarmonicMap < handle
                         if(i == k)
                                 delta(j) = abs(delta(j));
                         end
-                        univ_mtx(k-1, obj.total_elements(i)+j) = sum(delta);
+                        univ_mtx(k-1, obj.totalElements(i)+j) = sum(delta);
                     end
                 end
             end                   
@@ -266,9 +265,9 @@ classdef HarmonicMap < handle
                 aug_mtx(ne+1:end, 1:ne) = (agm/aum) * univ_mtx;
 
 
-                for k =1:length(obj.total_elements)-2       %-1 in k th row
-                    len = obj.total_elements(k+2) - obj.total_elements(k+1);
-                    aug_mtx(obj.total_elements(k+1)+1:obj.total_elements(k+2), ne+k) =...
+                for k =1:length(obj.totalElements)-2       %-1 in k th row
+                    len = obj.totalElements(k+2) - obj.totalElements(k+1);
+                    aug_mtx(obj.totalElements(k+1)+1:obj.totalElements(k+2), ne+k) =...
                         -ones(len, 1);
                 end
             end
@@ -281,19 +280,19 @@ classdef HarmonicMap < handle
             bx = zeros(size(obj.A,1),1);
             by = zeros(size(obj.A,1),1);
             
-            bx(1:obj.total_elements(1+1)) = cos(obj.theta);%actual centres
-            by(1:obj.total_elements(1+1))= sin(obj.theta);
+            bx(1:obj.totalElements(1+1)) = cos(obj.theta);%actual centres
+            by(1:obj.totalElements(1+1))= sin(obj.theta);
 
             X = linsolve(obj.A,bx);
             Y = linsolve(obj.A,by);
 
-            obj.Cx = X(1:obj.total_elements(end));
-            obj.Cy = Y(1:obj.total_elements(end));
+            obj.Cx = X(1:obj.totalElements(end));
+            obj.Cy = Y(1:obj.totalElements(end));
 
 
-            u = X(obj.total_elements(end)+1:end);
-            v = Y(obj.total_elements(end)+1:end);
-            obj.inner_obj_q = [u,v];
+            u = X(obj.totalElements(end)+1:end);
+            v = Y(obj.totalElements(end)+1:end);
+            obj.innerObst_q = [u,v];
         end
     end
     
@@ -305,7 +304,7 @@ classdef HarmonicMap < handle
         end
         
         function setBoundaries(obj,boundaries, isFree)
-            %recalculates the map
+            % recalculates the map
             % boundaries must be  1 x N cell
             % each containing m x 2 points that define the boundaries
             % BOUNDARY POINTS MUST BE IN A COUNTER CLOCKWISE ORDER.
@@ -340,13 +339,13 @@ classdef HarmonicMap < handle
             end
 
             xo = p(1); yo = p(2); 
-            wc_vec = zeros(obj.total_elements(end),1);
+            wc_vec = zeros(obj.totalElements(end),1);
 
-            for i = 1:length(obj.control_points)
-                xa = obj.control_points{i}(1:end-1,1);
-                ya = obj.control_points{i}(1:end-1,2);
-                xb = obj.control_points{i}(2:end,1);
-                yb = obj.control_points{i}(2:end,2);
+            for i = 1:length(obj.controlPoints)
+                xa = obj.controlPoints{i}(1:end-1,1);
+                ya = obj.controlPoints{i}(1:end-1,2);
+                xb = obj.controlPoints{i}(2:end,1);
+                yb = obj.controlPoints{i}(2:end,2);
 
                 a = xb-xa;
                 b = yb-ya;
@@ -368,7 +367,7 @@ classdef HarmonicMap < handle
                     -2.0;
 
                     wc = len.*wc;
-                    wc_vec(obj.total_elements(i)+1:obj.total_elements(i+1),:) = wc;
+                    wc_vec(obj.totalElements(i)+1:obj.totalElements(i+1),:) = wc;
             end
 
             u = obj.Cx' * wc_vec;
@@ -387,12 +386,12 @@ classdef HarmonicMap < handle
             x = p(1); y=p(2);
             gradu = [0,0];
             gradv = [0,0];
-            for i=1:length(obj.control_points)
+            for i=1:length(obj.controlPoints)
                              
-                xa = obj.control_points{i}(1:end-1,1);
-                ya = obj.control_points{i}(1:end-1,2);
-                xb = obj.control_points{i}(2:end,1);
-                yb = obj.control_points{i}(2:end,2);
+                xa = obj.controlPoints{i}(1:end-1,1);
+                ya = obj.controlPoints{i}(1:end-1,2);
+                xb = obj.controlPoints{i}(2:end,1);
+                yb = obj.controlPoints{i}(2:end,2);
                 xv = xb-xa;
                 yv = yb-ya;
 
@@ -423,10 +422,10 @@ classdef HarmonicMap < handle
 
 
                 ku = obj.Cx(...
-                obj.total_elements(i)+1 : obj.total_elements(i+1));
+                obj.totalElements(i)+1 : obj.totalElements(i+1));
 
                 kv = obj.Cy(...
-                obj.total_elements(i)+1 : obj.total_elements(i+1));
+                obj.totalElements(i)+1 : obj.totalElements(i+1));
 
 
                 %Unweighted normal gradient expressed in local coordinate frame.
@@ -462,14 +461,39 @@ classdef HarmonicMap < handle
             J = obj.jacobian(p);
         end
 
-        function v = getFieldVelocity(obj,x,q_d) 
+        function v = getFieldVelocity(obj,pos,q_d) 
+            [q,J]= obj.compute(pos);
+            if(nargin==2)
+                %if no dest is given use nearest in trasform
+                q_d = obj.getNearestFrontier(q);
+            end
+
                 % The robot kinematics
-                [q,J]= obj.compute(x);
                 dx=-inv(J)*(q-q_d);
-                %dx = norm([x(1)-p_d(1),x(2)-p_d(2)])*dx/(norm(dx)+0.001);
+                %q = obj.map(x)
+
+                %v = norm([q(1)-q_d(1),q(2)-q_d(2)])*dx/(norm(dx)+0.001);
                 v = dx/(norm(dx)+0.001);
         end
+        
+        function nearestFront_q = getNearestFrontier(obj, pos)
+            sz = size(pos);
+            if (sz(2)~=2) 
+                pos = pos';
+            end
 
+            frontPoints = obj.boundaries{1}(obj.isFree{1},:);
+            frontDist = sqrt(sum((frontPoints-pos).^2,2));
+            [~,indx] = min(frontDist);
+            nearestFront = frontPoints(indx,:)';
+            
+            nearest_q  = obj.map(nearestFront)';
+            
+            temp_dist = sqrt(sum((obj.frontiers_q-nearest_q).^2,2));
+            [~,indx] = min(temp_dist);
+            nearestFront_q = obj.frontiers_q(indx,:)';
+    
+        end
         
         function plotMap(obj)
 
@@ -501,19 +525,7 @@ classdef HarmonicMap < handle
 
             subplot(121)
             hold on
-            if isempty(obj.outer_boundary)
-                plot(obj.boundaries{1}(:,1),obj.boundaries{1}(:,2),...
-                   'k-','Linewidth',3)
-            else
-                 plot(obj.boundaries{1}(:,1),obj.boundaries{1}(:,2),...
-                   'r-','Linewidth',1)
-               for i = 1:length(obj.outer_boundary)
-                    plot(obj.outer_boundary{i}(:,1),obj.outer_boundary{i}(:,2),...
-                   'k-','Linewidth',3)
-               end
-               
-            end
-            
+     
             for i = 1:length(obj.boundaries)
                plot(obj.boundaries{i}(:,1),obj.boundaries{i}(:,2),...
                    'k-','Linewidth',2)
@@ -535,7 +547,7 @@ classdef HarmonicMap < handle
             hold on 
             plot(cos(obj.theta),sin(obj.theta),'k-','LineWidth', 2)
             plot(obj.frontiers_q(:,1),obj.frontiers_q(:,2),'ro', 'MarkerSize', 6)
-            plot(obj.inner_obj_q(:,1),obj.inner_obj_q(:,2), ...
+            plot(obj.innerObst_q(:,1),obj.innerObst_q(:,2), ...
                 'r.','MarkerSize', 15);                
             axis equal
             axis([-1-D 1+D -1-D 1+D])
