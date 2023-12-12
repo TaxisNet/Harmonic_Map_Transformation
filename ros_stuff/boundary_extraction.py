@@ -169,11 +169,6 @@ class Computation():
         contours, hierarchy  = cv2.findContours(bb,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
         
         #contour_hierarchy_list = self.get_contours_by_hierarchy(contours, hierarchy )
-        
-
-        
-
-        contours, hierarchy  = cv2.findContours(bb,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
 
 
         #GET ROBOT POSITION
