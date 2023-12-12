@@ -1,7 +1,7 @@
 rosshutdown
 % 
 addpath('/home/taxis/Projects/Harmonic_Map_Transformation')
-addpath('/home/taxis/catkin_ws/src/exploration_ws/src/matlab_msg_gen_ros1/glnxa64/install/m')
+addpath('/home/taxis/catkin_ws/src/matlab_msg_gen_ros1/glnxa64/install/m')
 % genDir = '~/catkin_ws/src/exploration_ws/src/';
 
 clear classes
@@ -13,8 +13,8 @@ rosinit
 % globals
 global hm K_ang K_lin q_front robotPos
 hm = HarmonicMap();
-K_ang = 0.5;
-K_lin = 0.1;
+K_ang = 0.3;
+K_lin = 0.08;
 
 %ROS
 % node = ros.Node('/matlab_node');
