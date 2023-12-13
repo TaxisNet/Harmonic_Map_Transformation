@@ -2,7 +2,7 @@
 import rospy
 from std_msgs.msg import Bool
 import matplotlib.pyplot as plt
-
+from math import ceil
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge 
 
@@ -44,6 +44,10 @@ class Computation():
         self.lo_max = 5000
         self.lo_min = -5000
 
+        #Robot Params (from https://emanual.robotis.com/docs/en/platform/turtlebot3/features/#data-of-turtlebot3-burger)
+        self.robot_radius = 0.105 # in meters
+        self.robot_radius_in_cells = None
+
         self.boundary_info_pub = rospy.Publisher(self.namespace +'/boundary_info', boundary_info, queue_size = 1)
         self.boundary_info_msg = boundary_info()
 
@@ -58,7 +62,7 @@ class Computation():
         self.mapSize_py = [msg.info.width, msg.info.height]
         self.mapResolution = msg.info.resolution
         self.mapOrigin = [-int(msg.info.origin.position.x),-int(msg.info.origin.position.y)]
-
+        self.robot_radius_in_cells = ceil(self.robot_radius/msg.info.resolution)
 
     def conv2(self,x,y,mode='same'):
 
@@ -120,6 +124,13 @@ class Computation():
         bound = np.array(map_data ==0, dtype=np.uint8)
         img_dilate = cv2.dilate(bound.copy(), kernel, iterations=1)
         map_data[np.logical_and(img_dilate==1,map_data<0)] = 0  
+
+        #DILATE BOUNDARIES BY ROBOT RADIUS
+        kernel = np.ones((self.robot_radius_in_cells, self.robot_radius_in_cells), dtype=np.uint8)
+        bound = np.array(map_data>0, dtype=np.uint8)
+        img_dilate = cv2.dilate(bound, kernel)
+        map_data[img_dilate==1]=1
+
 
         # FREE CONNECTED
         # freeDis = np.ones(map_data.shape, dtype=np.uint8)
@@ -328,7 +339,7 @@ class Computation():
             haspos = True
             # TRY COMPUTATION
             if haspos:
-                xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)
+                # xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)
                 try:
                     xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)    
                     failed_comp = False
@@ -381,11 +392,12 @@ if __name__=='__main__':
     listener = tf.TransformListener()
 
     computation = Computation()
-   
+    rate = rospy.Rate(0.5)
     
-    rate = rospy.Rate(0.1)
     while not rospy.is_shutdown():
+        #about 0.3 to 0.7 secs
         computation.publish_data()
+        
         rate.sleep()
 
 

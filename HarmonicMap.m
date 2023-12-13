@@ -35,7 +35,7 @@ classdef HarmonicMap < handle
         % Controls samples per unit. Outter has more that inner by 
         % innerObstacleSampleModifier
         % this might need tuning
-        samplesPerUnit = 100;
+        samplesPerUnit = 20;
         innerObstacleSampleModifier = 0.25;
         
         

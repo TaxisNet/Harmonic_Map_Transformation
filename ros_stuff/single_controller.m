@@ -77,9 +77,10 @@ function callback(~,msg)
         end
 
         %calculate transform
-        
+        tic
         hm.setBoundaries(boundaries,isFree);
-        % hm.plotMap
+        toc
+        hm.plotMap
        
         if(isempty(hm.frontiers_q))
             disp("Exporation Done!")
@@ -148,11 +149,14 @@ function [linVel, angVel] = velocityController(quat, desired_vel)
         delta_yaw = -sign(delta_yaw)*mod(abs(delta_yaw),pi);
     end
         
-    disp(rad2deg(delta_yaw));
+    %disp(rad2deg(delta_yaw));
 
     angVel = K_ang*delta_yaw; % sin(delta_yaw)
 
-    linVel = K_lin*norm(desired_vel);
+    %linVel = K_lin*norm(desired_vel);
+    
+    turningCoef = max((1-((delta_yaw)/(pi/2)).^4),0);
+    linVel = K_lin* turningCoef*norm(desired_vel);
 end
 
 
