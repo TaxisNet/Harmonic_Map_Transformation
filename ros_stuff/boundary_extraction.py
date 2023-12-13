@@ -261,9 +261,9 @@ class Computation():
         
         #pub map image
         #used for debug only!
-        #self.image_msg =  self.br.cv2_to_imgmsg(img ,"bgr8")
+       
         self.image_msg =  self.br.cv2_to_imgmsg(bbcopy,"bgr8")
-        self.image_pub.publish(self.image_msg)
+        #self.image_pub.publish(self.image_msg)
         
         # # plots for debugging
         # plt.subplot(231,title="freeBound")
@@ -392,7 +392,7 @@ if __name__=='__main__':
     listener = tf.TransformListener()
 
     computation = Computation()
-    rate = rospy.Rate(0.5)
+    rate = rospy.Rate(0.2)
     
     while not rospy.is_shutdown():
         #about 0.3 to 0.7 secs

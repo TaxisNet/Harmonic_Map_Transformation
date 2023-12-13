@@ -35,7 +35,7 @@ classdef HarmonicMap < handle
         % Controls samples per unit. Outter has more that inner by 
         % innerObstacleSampleModifier
         % this might need tuning
-        samplesPerUnit = 20;
+        samplesPerUnit = 15;
         innerObstacleSampleModifier = 0.25;
         
         
@@ -55,9 +55,9 @@ classdef HarmonicMap < handle
                 len = [0; cumsum(sqrt(sum(diff(currentBoundary,1,1).^2, 2)))];
                 total_len = len(end);
                 if(i==1)
-                    NofS = round(obj.samplesPerUnit*total_len);
+                    NofS = max(round(obj.samplesPerUnit*total_len),4);
                 else
-                    NofS = round(obj.innerObstacleSampleModifier*obj.samplesPerUnit*total_len);
+                    NofS = max(round(obj.innerObstacleSampleModifier*obj.samplesPerUnit*total_len),4);
                 end
                 t = linspace(0,total_len,NofS);
 
@@ -84,9 +84,9 @@ classdef HarmonicMap < handle
                 len = [0; cumsum(sqrt(sum(diff(currentBoundary,1,1).^2, 2)))];
                 total_len = len(end);
                 if(i==1)
-                    NofS = round(obj.samplesPerUnit*total_len);
+                    NofS = max(round(obj.samplesPerUnit*total_len),4);
                 else
-                    NofS = round(obj.innerObstacleSampleModifier*obj.samplesPerUnit*total_len);
+                     NofS = max(round(obj.innerObstacleSampleModifier*obj.samplesPerUnit*total_len),4);
                 end
                 t = linspace(0,total_len,NofS);
 
