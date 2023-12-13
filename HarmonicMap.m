@@ -74,7 +74,6 @@ classdef HarmonicMap < handle
         function findFrontiers(obj, lowDefinitionBoundaryCell, isFree)
             %upscales boundaries, calculates theta AND finds the frontier
             %points
-            
             upscaledBoundary = cell(0);
             upscaledIsFree = cell(0);
 
@@ -113,7 +112,7 @@ classdef HarmonicMap < handle
                 end
             end
             obj.boundaries = upscaledBoundary;
-            obj.isFree = upscaledIsFree;
+            obj.isFree = upscaledIsFree;            
         end
            
         function set_states(obj)
@@ -315,7 +314,7 @@ classdef HarmonicMap < handle
             if(nargin==2)
                 obj.upscaledBoundaries(boundaries);
             else
-                obj.findFrontiers(boundaries,isFree)
+                obj.findFrontiers(boundaries,isFree);
             end
 
             obj.set_states();

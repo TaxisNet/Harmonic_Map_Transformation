@@ -13,7 +13,7 @@ rosinit
 % globals
 global hm K_ang K_lin q_front robotPos
 hm = HarmonicMap();
-K_ang = 0.3;
+K_ang = 0.5;
 K_lin = 0.08;
 
 %ROS
@@ -69,6 +69,7 @@ function callback(~,msg)
             try
                 if(~determinePointOrder(boundaries{i}))
                     boundaries{i} = flip(boundaries{i},1);
+                    isFree{i} = flip(isFree{i},1);
                 end 
             catch ME
                 disp(ME.message)
@@ -78,7 +79,7 @@ function callback(~,msg)
         %calculate transform
         
         hm.setBoundaries(boundaries,isFree);
-        hm.plotMap
+        % hm.plotMap
        
         if(isempty(hm.frontiers_q))
             disp("Exporation Done!")
@@ -118,15 +119,27 @@ function [boundaries, isFree, pos] = parseBoundaries(msg)
     indxs = [0; msg.BoundaryIndex];
     n = length(msg.BoundaryIndex);
     boundaries = cell(n,1);
-    isFree = cell(n,1);
+    isFree= cell(n,1);
+
     for i=1:n
         boundaries{i} = [msg.Xl(indxs(i)+1:indxs(i+1)), msg.Yl(indxs(i)+1:indxs(i+1));
                          msg.Xl(indxs(i)+1), msg.Yl(indxs(i)+1)];
         boundaries{i}= double(boundaries{i});
         boundaries{i} = msg.MapResolution*boundaries{i}  - double([msg.MapX0, msg.MapY0]);
-        pos = msg.MapResolution*double([msg.PosX; msg.PosY]) - double([msg.MapX0; msg.MapY0]);
+
         isFree{i} = [msg.Isfree(indxs(i)+1:indxs(i+1));  msg.Isfree(indxs(i)+1)];
+        
+        pos = msg.MapResolution*double([msg.PosX; msg.PosY]) - double([msg.MapX0; msg.MapY0]);
+        
     end
+
+            figure(2)
+            subplot(122)
+            plot(boundaries{1}(:,1),boundaries{1}(:,2))
+            hold on 
+            plot(boundaries{1}(isFree{1},1),boundaries{1}(isFree{1},2), 'r*')
+            plot(boundaries{1}(1,1),boundaries{1}(1,2), 'o')
+            hold off
 
 end
 

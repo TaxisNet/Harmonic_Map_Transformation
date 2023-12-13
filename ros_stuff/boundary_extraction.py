@@ -27,7 +27,7 @@ class Computation():
         self.tf_robot_frame = self.namespace +'/base_footprint'
 
         # MAP SUBSCRIBER
-        rospy.Subscriber(self.namespace +"/map",OccupancyGrid,self.map_msg_callback)
+        rospy.Subscriber(self.namespace +'/map',OccupancyGrid,self.map_msg_callback)
         self.map_size_x = None
         self.map_size_y = None
         self.map_data = None
@@ -96,18 +96,18 @@ class Computation():
     def boundaryExtraction(self, map_data, position):
         # xl,yl,nb,nl,boundary_out = [None, None, None, None, None]
         
-        map_data[map_data>0] = 1
-        map_data[map_data<0] = -1
+        map_data[map_data>0] = 1 #occupied 
+        map_data[map_data<0] = -1 # unoccupied
+        #zero is unknown
         
         # DILATE IMAGE 
         bound = np.array(map_data>0, dtype=np.uint8)
         kernel = np.ones((2,2), np.uint8)
-        # kernel[0,0] = 0
         img_dilate = cv2.dilate(bound, kernel, iterations=2)
+        map_data[img_dilate==1]=1
 
         # ERODE IMAGE
         kernel = np.zeros((2,2), np.uint8)
-        map_data[img_dilate==1]=1
         img_dilate = cv2.erode(np.uint8(map_data.copy()), kernel, iterations=1)
 
          # DILATE FREE
@@ -122,20 +122,20 @@ class Computation():
         map_data[np.logical_and(img_dilate==1,map_data<0)] = 0  
 
         # FREE CONNECTED
-        freeDis = np.ones(map_data.shape, dtype=np.uint8)
-        freeDis[map_data<0] = 0
+        # freeDis = np.ones(map_data.shape, dtype=np.uint8)
+        # freeDis[map_data<0] = 0
 
         # IMFILL
         # FUNCTION 
-        im_th = freeDis.copy()
+        # im_th = freeDis.copy()
         
-        h, w = im_th.shape[:2]
-        mask = np.zeros((h+2, w+2), np.uint8)
+        # h, w = im_th.shape[:2]
+        # mask = np.zeros((h+2, w+2), np.uint8)
 
-        cv2.floodFill(freeDis, mask, (int(position[0]),int(position[1])),1,flags=4)
+        # cv2.floodFill(freeDis, mask, (int(position[0]),int(position[1])),1,flags=4)
 
-        im_floodfill_inv = freeDis
-        freeDis = np.logical_or(im_th,im_floodfill_inv)
+        # im_floodfill_inv = freeDis
+        # freeDis = np.logical_or(im_th,im_floodfill_inv)
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # !!!!!!!!!!!!!!!!!!!!!! THIS FREEDIS CODE IS DISREGARDED AS IT PRODUCES ERRORS
@@ -146,14 +146,13 @@ class Computation():
         free = map_data.copy() < 0
         convMat = np.array([[0,1,0],[1,-4,1],[0,1,0]]) #
         bound = self.conv2(free,convMat,mode='same')
+        
         obsBound = bound.copy() >0
         obsBound = np.logical_and(obsBound,(map_data>0))
+
         unknown = map_data.copy()==0
-
-
         bound = self.conv2(unknown,convMat,mode='same')
         freeBound = bound.copy() > 0
-
         freeBound = np.logical_and(freeBound.copy(),(map_data<0))
 
         boundary = np.zeros(map_data.shape)
@@ -163,6 +162,8 @@ class Computation():
         # Find the connected boundary components 
         bb = (boundary.copy() != 0 )
         bb = np.array(bb, dtype=np.uint8)
+        
+
         
         
         #FINALLY FIND THE CONTOURS
@@ -204,7 +205,7 @@ class Computation():
         else:
             cur_bound_indx = hierarchy[0][outer_outer_bound_indx][2]
             outer_bound_indx = cur_bound_indx
-            print('2')
+            
             #if mutiple inner outer level boundaries
             while(True):
                 if(cv2.pointPolygonTest(contours[cur_bound_indx], robot_position, measureDist=False) >= 0):
@@ -258,7 +259,19 @@ class Computation():
         self.image_msg =  self.br.cv2_to_imgmsg(bbcopy,"bgr8")
         self.image_pub.publish(self.image_msg)
         
-        
+        # # plots for debugging
+        # plt.subplot(231,title="freeBound")
+        # plt.imshow(freeBound)
+        # plt.subplot(232, title="obsBound")
+        # plt.imshow(obsBound)
+        # plt.subplot(233,title="booundary")
+        # plt.imshow(boundary)
+        # plt.subplot(212)
+        # plt.plot(xl,yl, 'b-')
+        # plt.plot(xl[boundary_out[yl,xl] < 0],yl[boundary_out[yl,xl] < 0],'g*') 
+        # plt.gca().set_aspect('equal', adjustable='box')
+        # plt.show()
+
         return xl,yl,nb,nl,boundary_out
     
     def get_contours_by_hierarchy(self, contours, hierarchy ):
@@ -320,7 +333,7 @@ class Computation():
             haspos = True
             # TRY COMPUTATION
             if haspos:
-                #xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)
+                xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)
                 try:
                     xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)    
                     failed_comp = False
@@ -375,7 +388,7 @@ if __name__=='__main__':
     computation = Computation()
    
     
-    rate = rospy.Rate(0.5)
+    rate = rospy.Rate(0.1)
     while not rospy.is_shutdown():
         computation.publish_data()
         rate.sleep()

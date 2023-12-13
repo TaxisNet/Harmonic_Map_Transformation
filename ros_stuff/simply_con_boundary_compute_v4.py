@@ -89,9 +89,6 @@ class Computation():
         bbcopy[map_data==1,1] = 0
        
 
-        plt.imshow(bbcopy)
-        plt.show()
-
 if __name__=='__main__':
 
     rospy.init_node('boundary_comp_node', anonymous=True)
