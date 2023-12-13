@@ -386,19 +386,39 @@ class Computation():
 
 
 
+# if __name__=='__main__':
+
+#     rospy.init_node('boundary_comp_node', anonymous=True)
+#     listener = tf.TransformListener()
+
+#     computation = Computation()
+#     rate = rospy.Rate(0.2)
+    
+#     while not rospy.is_shutdown():
+#         #about 0.3 to 0.7 secs
+#         computation.publish_data()
+        
+#         rate.sleep()
+
+
+#     rospy.spin()
+
 if __name__=='__main__':
 
     rospy.init_node('boundary_comp_node', anonymous=True)
     listener = tf.TransformListener()
 
-    computation = Computation()
+    computation_tb0 = Computation(ns='tb3_0')
+    computation_tb1 = Computation(ns='tb3_1')
+
     rate = rospy.Rate(0.2)
     
     while not rospy.is_shutdown():
         #about 0.3 to 0.7 secs
-        computation.publish_data()
-        
+        computation_tb0.publish_data()
+        computation_tb1.publish_data()
         rate.sleep()
 
 
     rospy.spin()
+

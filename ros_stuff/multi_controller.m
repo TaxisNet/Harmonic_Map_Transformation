@@ -1,7 +1,7 @@
 rosshutdown
 % 
 addpath('/home/taxis/Projects/Harmonic_Map_Transformation')
-addpath('/home/taxis/catkin_ws/src/exploration_ws/src/matlab_msg_gen_ros1/glnxa64/install/m')
+addpath('/home/taxis/catkin_ws/src/matlab_msg_gen_ros1/glnxa64/install/m')
 % genDir = '~/catkin_ws/src/exploration_ws/src/';
 
 clear classes
@@ -13,7 +13,7 @@ rosinit
 % globals
 global hm K_ang K_lin q_front robotPos
 hm = HarmonicMap();
-K_ang = 0.3;
+K_ang = 0.5;
 K_lin = 0.08;
 
 %ROS
@@ -69,6 +69,7 @@ function callback(~,msg)
             try
                 if(~determinePointOrder(boundaries{i}))
                     boundaries{i} = flip(boundaries{i},1);
+                    isFree{i} = flip(isFree{i},1);
                 end 
             catch ME
                 disp(ME.message)
@@ -76,8 +77,9 @@ function callback(~,msg)
         end
 
         %calculate transform
-        
+        tic
         hm.setBoundaries(boundaries,isFree);
+        toc
         hm.plotMap
        
         if(isempty(hm.frontiers_q))
@@ -118,16 +120,19 @@ function [boundaries, isFree, pos] = parseBoundaries(msg)
     indxs = [0; msg.BoundaryIndex];
     n = length(msg.BoundaryIndex);
     boundaries = cell(n,1);
-    isFree = cell(n,1);
+    isFree= cell(n,1);
+
     for i=1:n
         boundaries{i} = [msg.Xl(indxs(i)+1:indxs(i+1)), msg.Yl(indxs(i)+1:indxs(i+1));
                          msg.Xl(indxs(i)+1), msg.Yl(indxs(i)+1)];
         boundaries{i}= double(boundaries{i});
         boundaries{i} = msg.MapResolution*boundaries{i}  - double([msg.MapX0, msg.MapY0]);
-        pos = msg.MapResolution*double([msg.PosX; msg.PosY]) - double([msg.MapX0; msg.MapY0]);
-        isFree{i} = [msg.Isfree(indxs(i)+1:indxs(i+1));  msg.Isfree(indxs(i)+1)];
-    end
 
+        isFree{i} = [msg.Isfree(indxs(i)+1:indxs(i+1));  msg.Isfree(indxs(i)+1)];
+        
+        pos = msg.MapResolution*double([msg.PosX; msg.PosY]) - double([msg.MapX0; msg.MapY0]);
+        
+    end
 end
 
 
@@ -144,11 +149,14 @@ function [linVel, angVel] = velocityController(quat, desired_vel)
         delta_yaw = -sign(delta_yaw)*mod(abs(delta_yaw),pi);
     end
         
-    disp(rad2deg(delta_yaw));
+    %disp(rad2deg(delta_yaw));
 
     angVel = K_ang*delta_yaw; % sin(delta_yaw)
 
-    linVel = K_lin*norm(desired_vel);
+    %linVel = K_lin*norm(desired_vel);
+    
+    turningCoef = max((1-((delta_yaw)/(pi/2)).^4),0);
+    linVel = K_lin* turningCoef*norm(desired_vel);
 end
 
 
