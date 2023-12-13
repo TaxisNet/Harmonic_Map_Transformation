@@ -132,15 +132,6 @@ function [boundaries, isFree, pos] = parseBoundaries(msg)
         pos = msg.MapResolution*double([msg.PosX; msg.PosY]) - double([msg.MapX0; msg.MapY0]);
         
     end
-
-            figure(2)
-            subplot(122)
-            plot(boundaries{1}(:,1),boundaries{1}(:,2))
-            hold on 
-            plot(boundaries{1}(isFree{1},1),boundaries{1}(isFree{1},2), 'r*')
-            plot(boundaries{1}(1,1),boundaries{1}(1,2), 'o')
-            hold off
-
 end
 
 
