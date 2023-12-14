@@ -35,7 +35,7 @@ classdef HarmonicMap < handle
         % Controls samples per unit. Outter has more that inner by 
         % innerObstacleSampleModifier
         % this might need tuning
-        samplesPerUnit = 15;
+        samplesPerUnit = 60;
         innerObstacleSampleModifier = 0.25;
         
         
@@ -508,7 +508,7 @@ classdef HarmonicMap < handle
             end
                 
             obj.fig.Name = 'Harmonic Map Transformation';
-
+            figure(obj.fig)
 
             min_x = min(obj.boundaries{1}(:,1));
             max_x = max(obj.boundaries{1}(:,1));
@@ -521,7 +521,8 @@ classdef HarmonicMap < handle
             x_u = max_x+D*dx;
             y_l = min_y-D*dy;
             y_u = max_y+D*dy;
-
+            
+            
             subplot(121)
             hold on
      
@@ -538,11 +539,10 @@ classdef HarmonicMap < handle
             axis equal
             axis([x_l x_u y_l y_u])
             box on
-            %hold off
+            hold off
 
-
+           
             subplot(122)
-
             hold on 
             plot(cos(obj.theta),sin(obj.theta),'k-','LineWidth', 2)
             plot(obj.frontiers_q(:,1),obj.frontiers_q(:,2),'ro', 'MarkerSize', 6)
@@ -551,7 +551,7 @@ classdef HarmonicMap < handle
             axis equal
             axis([-1-D 1+D -1-D 1+D])
             box on
-            %hold off                
+            hold off                
         end
         
         function [t,p_path,q_path] = navigate(obj,p_0,p_d, vis)

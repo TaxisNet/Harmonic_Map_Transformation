@@ -411,7 +411,7 @@ if __name__=='__main__':
     computation_tb0 = Computation(ns='tb3_0')
     computation_tb1 = Computation(ns='tb3_1')
 
-    rate = rospy.Rate(0.2)
+    rate = rospy.Rate(0.25)
     
     while not rospy.is_shutdown():
         #about 0.3 to 0.7 secs
