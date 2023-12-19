@@ -25,9 +25,11 @@ class Computation():
         self.namespace =  ns
         self.tf_map_frame = self.namespace +'/map'
         self.tf_robot_frame = self.namespace +'/base_footprint'
+        self.map_topic = self.namespace +'/map'
+
 
         # MAP SUBSCRIBER
-        rospy.Subscriber(self.namespace +'/map',OccupancyGrid,self.map_msg_callback)
+        self.map_sub = rospy.Subscriber(self.map_topic,OccupancyGrid,self.map_msg_callback)
         self.map_size_x = None
         self.map_size_y = None
         self.map_data = None
@@ -54,7 +56,7 @@ class Computation():
         self.image = None
         self.br = CvBridge()
 
-        self.image_pub = rospy.Publisher(self.namespace+'/image_bou', Image,queue_size=1)
+        self.image_pub = rospy.Publisher(self.namespace+'/image_bou',Image,queue_size=1)
         self.image_msg = Image()
 
     def map_msg_callback(self,msg):
@@ -63,6 +65,7 @@ class Computation():
         self.mapResolution = msg.info.resolution
         self.mapOrigin = [-int(msg.info.origin.position.x),-int(msg.info.origin.position.y)]
         self.robot_radius_in_cells = ceil(self.robot_radius/msg.info.resolution)
+        self.robot_radius_in_cells+=1
 
     def conv2(self,x,y,mode='same'):
 
@@ -373,7 +376,7 @@ class Computation():
                 self.boundary_info_msg.map_y0 = self.mapOrigin[1]
                 self.boundary_info_msg.map_width = self.mapSize_py[0]
                 self.boundary_info_msg.map_height = self.mapSize_py[1]
-                self.boundary_info_pub.publish(computation.boundary_info_msg)
+                self.boundary_info_pub.publish(self.boundary_info_msg)
                 
             
             return failed_comp
@@ -381,44 +384,23 @@ class Computation():
             # print('MAP NOT RECEIVED')
             pass
             
-        
 
-
-
-
-# if __name__=='__main__':
-
-#     rospy.init_node('boundary_comp_node', anonymous=True)
-#     listener = tf.TransformListener()
-
-#     computation = Computation()
-#     rate = rospy.Rate(0.2)
-    
-#     while not rospy.is_shutdown():
-#         #about 0.3 to 0.7 secs
-#         computation.publish_data()
-        
-#         rate.sleep()
-
-
-#     rospy.spin()
 
 if __name__=='__main__':
 
     rospy.init_node('boundary_comp_node', anonymous=True)
     listener = tf.TransformListener()
 
-    computation_tb0 = Computation(ns='tb3_0')
-    computation_tb1 = Computation(ns='tb3_1')
-
-    rate = rospy.Rate(0.25)
+    computation = Computation()
+    rate = rospy.Rate(0.2)
     
     while not rospy.is_shutdown():
         #about 0.3 to 0.7 secs
-        computation_tb0.publish_data()
-        computation_tb1.publish_data()
+        computation.publish_data()
+        
         rate.sleep()
 
 
     rospy.spin()
+
 

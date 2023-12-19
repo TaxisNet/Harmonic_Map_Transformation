@@ -10,13 +10,13 @@ rehash toolboxcache
 
 rosinit
 
-global hm_cell q_front_cell namespace K_ang K_lin
+global hm_cell q_front_cell robot_pos_cell namespace K_ang K_lin 
 hm_cell = {HarmonicMap(); HarmonicMap()};
 K_ang = 0.5;
 K_lin = 0.08;
 
 namespace ={ 'tb3_0', 'tb3_1'};
-
+robot_pos_cell= cell(1,2);
 q_front_cell = cell(1,2);
 %ROS
 % node = ros.Node('/matlab_node');
@@ -39,15 +39,15 @@ while(1)
     parfor i=1:length(hm_cell)
         twistMsg = rosmessage(velocity_pub{i});
         if(~isempty(hm_cell{i}.frontiers_q) && ~isempty(q_front_cell{i}))
-            % robotPosMsg = getTransform(tftree, strcat( namespace{i}, '/map'), strcat( namespace{i}, '/base_footprint'));
-            % robotPos = [robotPosMsg.Transform.Translation.X; robotPosMsg.Transform.Translation.Y];
+            robotPosMsg = getTransform(tftree, strcat( namespace{i}, '/map'), strcat( namespace{i}, '/base_footprint'));
+            robotPos = [robotPosMsg.Transform.Translation.X; robotPosMsg.Transform.Translation.Y];
+            robot_pos_cell{i}=robotPos;
+            robotQuat = robotPosMsg.Transform.Rotation;
+            robotQuat = [robotQuat.W robotQuat.X robotQuat.Y robotQuat.Z];
             
-            % robotQuat = robotPosMsg.Transform.Rotation;
-            % robotQuat = [robotQuat.W robotQuat.X robotQuat.Y robotQuat.Z];
-            
-            robotPos=[0;0];
-            robotQuat= zeros(1,4);
-            desired_vel = hm_cell{i}.getFieldVelocity(robotPos,q_front_cell{i});
+            % robotPos=[0;0];
+            % robotQuat= zeros(1,4);
+            desired_vel = hm_cell{i}.getFieldVelocity(robot_pos_cell{i},q_front_cell{i});
             %no q given-> gets nearest (in q-space)frontier
             
             
@@ -65,9 +65,9 @@ end
 
 
 function callback_1(~,msg)
-    global hm_cell q_front_cell namespace
+    global hm_cell q_front_cell robot_pos_cell
 
-    hm_cell
+    robot_num=1;
     if(~msg.CompFailed)
         [boundaries, isFree, ~] = parseBoundaries(msg);
         % check if order is counter clock wise.
@@ -88,30 +88,29 @@ function callback_1(~,msg)
         
         %calculate transform
         tic
-        hm_cell{1}.setBoundaries(boundaries,isFree);
+        hm_cell{robot_num}.setBoundaries(boundaries,isFree);
         toc
-        hm_cell{1}.plotMap
+        hm_cell{robot_num}.plotMap
         
-        if(isempty(hm_cell{1}.frontiers_q))
+        if(isempty(hm_cell{robot_num}.frontiers_q))
             disp("Exporation Done!")
             return
         end
         
         try
-            % robotPosMsg = getTransform(tftree, strcat( namespace{1}, '/map'), strcat( namespace{1}, '/base_footprint'));
-            % robotPos = [robotPosMsg.Transform.Translation.X; robotPosMsg.Transform.Translation.Y];
-            robotPos=[0;0];
-            q_front_cell{1} = hm_cell{1}.getNearestFrontier(robotPos);
+            q_front_cell{robot_num} = hm_cell{robot_num}.getNearestFrontier(robot_pos_cell{robot_num});
         catch
             disp("Error finding nearest frontier")
-            q_front_cell{1} = hm_cell{1}.frontiers_q(1,:)';
+            q_front_cell{robot_num} = hm_cell{robot_num}.frontiers_q(1,:)';
         end
         
     end
 end
 
 function callback_2(~,msg)
-    global hm_cell q_front_cell robot_pos_cell namespace
+    global hm_cell q_front_cell robot_pos_cell
+
+    robot_num=2;
     if(~msg.CompFailed)
         [boundaries, isFree, ~] = parseBoundaries(msg);
         % check if order is counter clock wise.
@@ -132,23 +131,20 @@ function callback_2(~,msg)
         
         %calculate transform
         tic
-        hm_cell{2}.setBoundaries(boundaries,isFree);
+        hm_cell{robot_num}.setBoundaries(boundaries,isFree);
         toc
-        hm_cell{2}.plotMap
+        hm_cell{robot_num}.plotMap
         
-        if(isempty(hm_cell{2}.frontiers_q))
+        if(isempty(hm_cell{robot_num}.frontiers_q))
             disp("Exporation Done!")
             return
         end
         
-        try 
-            % robotPosMsg = getTransform(tftree, strcat( namespace{2}, '/map'), strcat( namespace{2}, '/base_footprint'));
-            % robotPos = [robotPosMsg.Transform.Translation.X; robotPosMsg.Transform.Translation.Y];
-            robotPos=[0;0];
-            q_front_cell{2} = hm_cell{2}.getNearestFrontier(robotPos);
+        try
+            q_front_cell{robot_num} = hm_cell{robot_num}.getNearestFrontier(robot_pos_cell{robot_num});
         catch
             disp("Error finding nearest frontier")
-            q_front_cell{2} = hm_cell{2}.frontiers_q(1,:)';
+            q_front_cell{robot_num} = hm_cell{robot_num}.frontiers_q(1,:)';
         end
         
     end
