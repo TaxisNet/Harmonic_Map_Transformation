@@ -3,17 +3,29 @@ from boundary_extraction import *
 
 
 class MergingComputation(Computation):
-    def __init__(self,compList, mergedComp):
-        self.namespace = '/map_merge'
+    def __init__(self,compList):
+        
         self.computation_list = compList
 
-        self.merged_compitation = mergedComp
         self.merged_robots = []
     
-
+        super(MergingComputation, self).__init__('/map_merge')
     #if is merged stop the other computations, publish this one and tell matlab to use the same one
-        
+        self.tf_map_frame = 'world'
+        self.map_topic =  '/map_merge'+'/map'
+        self.map_sub.unregister()
+        self.map_sub = rospy.Subscriber(self.map_topic,OccupancyGrid,self.map_msg_callback)
 
+
+    def map_msg_callback(self,msg):
+        self.map_data_tmp = msg.data
+        self.mapSize_py = [msg.info.width, msg.info.height]
+        self.mapResolution = msg.info.resolution
+        self.mapOrigin = [-int(msg.info.origin.position.x),-int(msg.info.origin.position.y)]
+        self.mapOrigin = [5 , 5]
+        self.robot_radius_in_cells = ceil(self.robot_radius/msg.info.resolution)
+        self.robot_radius_in_cells+=1
+    
 
 
     def updateToMerged(self, comp):
@@ -80,10 +92,7 @@ class MergingComputation(Computation):
         # Find the connected boundary components 
         bb = (boundary.copy() != 0 )
         bb = np.array(bb, dtype=np.uint8)
-        
 
-        
-        
         #FINALLY FIND THE CONTOURS
         contours, hierarchy  = cv2.findContours(bb,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
         
@@ -93,7 +102,7 @@ class MergingComputation(Computation):
         #GET ROBOT POSITION
         for comp in self.computation_list:
             try:
-                (trans,rot) = listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
+                (trans,rot) = listener.lookupTransform(self.tf_map_frame, comp.tf_robot_frame, rospy.Time(0))
                 #pos in image pixels
                 robot_pos = np.double([trans[0]/self.mapResolution,trans[1]/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
                 #do not remove because it cv2 pointPolygonTest produces an error.
@@ -101,15 +110,17 @@ class MergingComputation(Computation):
 
                 robot_positions.append(robot_pos)
             except:
-                print("Error getting pos of %s".format(comp.namespace))
+                print("Error getting pos of {}".format(comp.namespace))
                 pass
 
-    
-        
+        # boundary[107][109] = 200
+        plt.imshow(boundary)
+        plt.show()
         #find outer side of outer contour
         for i, hierarchy_vec in enumerate(hierarchy[0]):
             if(hierarchy_vec[3]==-1):
                 #check if 1st  robot is inside:
+                
                 if(cv2.pointPolygonTest(contours[i], robot_positions[0], measureDist=False) >= 0):
                     outer_outer_bound_indx = i
                     break
@@ -140,10 +151,10 @@ class MergingComputation(Computation):
                     #i+1 to compernsate for the first element that is poped
                     self.merged_robots.append(self.computation_list[i+1].namespace)                    
                     self.isMerged = True
-
+                    print("Merged")
             if(not self.isMerged):
                 return None, None, None, None, None
-
+        print(self.merged_robots)
         #append outer boundary to msg
         tmpout = np.array(contours[outer_bound_indx].copy()).reshape(contours[outer_bound_indx].shape[0],contours[outer_bound_indx].shape[2])
         xl = np.ascontiguousarray(np.flipud(tmpout[:,0]))
@@ -213,12 +224,13 @@ if __name__=='__main__':
     computation_tb0 = Computation(ns='tb3_0')
     computation_tb1 = Computation(ns='tb3_1')
 
+    mc = MergingComputation([computation_tb0, computation_tb1])
+
     rate = rospy.Rate(0.25)
     
     while not rospy.is_shutdown():
-        #about 0.3 to 0.7 secs
-        computation_tb0.publish_data()
-        computation_tb1.publish_data()
+        
+        mc.publish_data()
         rate.sleep()
 
 

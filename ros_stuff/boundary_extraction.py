@@ -100,8 +100,9 @@ class Computation():
 
         return z    
     
-    def boundaryExtraction(self, map_data, position):
-        # xl,yl,nb,nl,boundary_out = [None, None, None, None, None]
+    def boundaryExtraction(self, map_data):
+        # Uses the robot's position and cv.findContours to locate the map contours
+        
         
         map_data[map_data>0] = 1 #occupied 
         map_data[map_data<0] = -1 # unoccupied
@@ -260,7 +261,7 @@ class Computation():
         bbcopy[freeBound,2] = 0
         bbcopy[obsBound,0] = 0
         bbcopy[obsBound,1] = 0
-        bbcopy[int(position[1])-1:int(position[1])+1,int(position[0])-1:int(position[0])+1,:] = 0
+        # bbcopy[int(position[1])-1:int(position[1])+1,int(position[0])-1:int(position[0])+1,:] = 0
         
         #pub map image
         #used for debug only!
@@ -284,7 +285,7 @@ class Computation():
         return xl,yl,nb,nl,boundary_out
     
     def get_contours_by_hierarchy(self, contours, hierarchy ):
-        #do not use
+        #!!!!!!!!do not use!!!!!!
 
 
         # Organize contours by hierarchy level
@@ -305,50 +306,54 @@ class Computation():
 
         return organized_contours
     
+
+    def prefilter_map(self):
+        # IMPLEMENTATION OF THE occGridMapping_py FUNCTION
+        map_output = np.transpose(np.reshape(self.map_data_tmp,(self.mapSize_py[1],self.mapSize_py[0]),order='F'))
+        map_data = map_output.copy()
+
+        
+        map_data[map_output.copy() == -1] = 0
+        map_data[ np.logical_and(map_output.copy() < 50,map_output.copy() != -1)] = self.lo_min
+        map_data[map_output.copy() >= 50] =self.lo_max
+        map_data_uint8 = np.uint8(map_data.copy())
+        
+    
+        # INFLATE THE BOUNDARY
+        kernel = np.ones((1,1), np.uint8) #kernel = np.ones((3,3), np.uint8)
+        map_uint8_dilate = cv2.dilate(map_data_uint8, kernel, iterations=1)
+        map_dilate = map_data.copy()
+        map_dilate[map_uint8_dilate == np.max(map_uint8_dilate)] = self.lo_max
+
+        return map_dilate
+
+
+
     def publish_data(self):
         failed_comp = False
         # CHECK IF MAP HAS BEEN RECEIVED
         if (not self.map_data_tmp == None):
-            # print("MAP RECEIVED")
-            # IMPLEMENTATION OF THE occGridMapping_py FUNCTION
-            map_output = np.transpose(np.reshape(self.map_data_tmp,(self.mapSize_py[1],self.mapSize_py[0]),order='F'))
-            map_data = map_output.copy()
+            prefiltered_map  = self.prefilter_map()
+            # # GET ROBOT POSITION
+            # try:
+            #     (trans,rot) = listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
+            #     #pos in image pixels
+            #     self.position= np.double([trans[0]/self.mapResolution,trans[1]/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
+            #     self.position = self.position.astype(int)
+            #     haspos = True
+            # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            #     print("pos exception")
+            #     failed_comp = True
+            #     return failed_comp
 
-           
-            map_data[map_output.copy() == -1] = 0
-            map_data[ np.logical_and(map_output.copy() < 50,map_output.copy() != -1)] = self.lo_min
-            map_data[map_output.copy() >= 50] =self.lo_max
-            map_data_uint8 = np.uint8(map_data.copy())
-            
-        
-            # INFLATE THE BOUNDARY
-            kernel = np.ones((1,1), np.uint8) #kernel = np.ones((3,3), np.uint8)
-            map_uint8_dilate = cv2.dilate(map_data_uint8, kernel, iterations=1)
-            map_dilate = map_data.copy()
-            map_dilate[map_uint8_dilate == np.max(map_uint8_dilate)] = self.lo_max
-
-            # GET ROBOT POSITION
-            try:
-                (trans,rot) = listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
-                #pos in image pixels
-                self.position= np.double([trans[0]/self.mapResolution,trans[1]/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
-                self.position = self.position.astype(int)
-                haspos = True
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                print("pos exception")
-                failed_comp = True
-                return failed_comp
-
-            haspos = True
             # TRY COMPUTATION
-            if haspos:
-                # xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)
-                try:
-                    xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( map_dilate, self.position)    
-                    failed_comp = False
-                except:
-                    print("boundary extraction exception")
-                    failed_comp = True
+            xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( prefiltered_map)
+            try:
+                xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction(prefiltered_map)    
+                failed_comp = False
+            except:
+                print("boundary extraction exception")
+                failed_comp = True
 
             # PARTITION THE BOUNDARY TO FREE AND OCC
             if not failed_comp:
@@ -358,8 +363,8 @@ class Computation():
                 self.boundary_info_msg.yl = yl_py
                 self.boundary_info_msg.boundary_index = nl_py
                 self.boundary_info_msg.isfree = is_bou_free
-                self.boundary_info_msg.pos_x = self.position[0]
-                self.boundary_info_msg.pos_y = self.position[1]
+                # self.boundary_info_msg.pos_x = self.position[0]
+                # self.boundary_info_msg.pos_y = self.position[1]
                 self.boundary_info_msg.map_x0 = self.mapOrigin[0]
                 self.boundary_info_msg.map_y0 = self.mapOrigin[1]
                 self.boundary_info_msg.map_width = self.mapSize_py[0]
@@ -381,8 +386,7 @@ class Computation():
             
             return failed_comp
         else:
-            # print('MAP NOT RECEIVED')
-            pass
+            return False
             
 
 
