@@ -309,7 +309,7 @@ class Computation():
 
     def prefilter_map(self):
         # IMPLEMENTATION OF THE occGridMapping_py FUNCTION
-        map_output = np.transpose(np.reshape(self.map_data_tmp,(self.mapSize_py[1],self.mapSize_py[0]),order='F'))
+        map_output = np.transpose(np.reshape(self.map_data_tmp,(self.mapSize_py[0],self.mapSize_py[1]),order='F'))
         map_data = map_output.copy()
 
         
@@ -395,7 +395,7 @@ if __name__=='__main__':
     rospy.init_node('boundary_comp_node', anonymous=True)
     listener = tf.TransformListener()
 
-    computation = Computation()
+    computation = Computation('tb3_0')
     rate = rospy.Rate(0.2)
     
     while not rospy.is_shutdown():
