@@ -21,7 +21,7 @@ K_lin = 0.08;
 % sub = ros.Subscriber(node,'boundary_info','boundary_compute/boundary_info', @callback , DataFormat='struct');
 % vel_pub = ros.Publisher(node, '/cmd_vel','geometry_msgs/Twist');
 
-sub = rossubscriber('boundary_info','boundary_compute/boundary_info', @callback , DataFormat='struct');
+sub = rossubscriber('/boundary_info','boundary_compute/boundary_info', @callback , DataFormat='struct');
 vel_pub = rospublisher('/cmd_vel','geometry_msgs/Twist', DataFormat='struct');
 
 

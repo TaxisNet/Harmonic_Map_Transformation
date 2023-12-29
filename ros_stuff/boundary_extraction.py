@@ -192,17 +192,16 @@ class Computation():
             (trans,rot) = listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
             #pos in image pixels
             robot_position= np.double([trans[0]/self.mapResolution,trans[1]/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
-            robot_position= tuple(robot_position.astype(int))
+            robot_position = np.round(robot_position).astype(int)
             #do not remove because it cv2 pointPolygonTest produces an error.
             robot_position = (int(robot_position[0]), int(robot_position[1]))
-            
         except:
             pass
 
         #find outer side of outer contour
         for i, hierarchy_vec in enumerate(hierarchy[0]):
             if(hierarchy_vec[3]==-1):
-                #check if robot is inside:
+                #check if robot is inside:                
                 if(cv2.pointPolygonTest(contours[i], robot_position, measureDist=False) >= 0):
                     outer_outer_bound_indx = i
                     break
@@ -253,6 +252,19 @@ class Computation():
         # print(hierarchy)
         # print("--------------\n")
 
+
+        # ##########
+        # robot_position= np.double([1/self.mapResolution,2/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
+        # robot_position = np.round(robot_position).astype(int)
+        # bou = boundary.copy()
+        # x = robot_position[0]
+        # y = robot_position[1]
+        # print("{} {}".format(x,y))
+        # bou[x,y] = 2
+        # plt.imshow(bou, cmap='gray')
+        # plt.show()
+        # ###############
+
                 
 
         boundary_out = boundary
@@ -265,7 +277,6 @@ class Computation():
         
         #pub map image
         #used for debug only!
-       
         self.image_msg =  self.br.cv2_to_imgmsg(bbcopy,"bgr8")
         #self.image_pub.publish(self.image_msg)
         
@@ -307,24 +318,22 @@ class Computation():
         return organized_contours
     
 
-    def prefilter_map(self):
+    def prefilter_map(self, map_data, map_size):
         # IMPLEMENTATION OF THE occGridMapping_py FUNCTION
-        map_output = np.transpose(np.reshape(self.map_data_tmp,(self.mapSize_py[0],self.mapSize_py[1]),order='F'))
+        map_output = np.transpose(np.reshape(map_data, (map_size[0],map_size[1]),order='F'))
         map_data = map_output.copy()
-
         
         map_data[map_output.copy() == -1] = 0
         map_data[ np.logical_and(map_output.copy() < 50,map_output.copy() != -1)] = self.lo_min
         map_data[map_output.copy() >= 50] =self.lo_max
         map_data_uint8 = np.uint8(map_data.copy())
-        
     
         # INFLATE THE BOUNDARY
         kernel = np.ones((1,1), np.uint8) #kernel = np.ones((3,3), np.uint8)
         map_uint8_dilate = cv2.dilate(map_data_uint8, kernel, iterations=1)
         map_dilate = map_data.copy()
         map_dilate[map_uint8_dilate == np.max(map_uint8_dilate)] = self.lo_max
-
+        
         return map_dilate
 
 
@@ -333,7 +342,7 @@ class Computation():
         failed_comp = False
         # CHECK IF MAP HAS BEEN RECEIVED
         if (not self.map_data_tmp == None):
-            prefiltered_map  = self.prefilter_map()
+            prefiltered_map  = self.prefilter_map(self.map_data_tmp,self.mapSize_py)
             # # GET ROBOT POSITION
             # try:
             #     (trans,rot) = listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
@@ -347,7 +356,7 @@ class Computation():
             #     return failed_comp
 
             # TRY COMPUTATION
-            xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction( prefiltered_map)
+            # xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction(prefiltered_map)
             try:
                 xl_py, yl_py,nb_py,nl_py,boundary_py = self.boundaryExtraction(prefiltered_map)    
                 failed_comp = False

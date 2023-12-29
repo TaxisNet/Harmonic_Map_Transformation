@@ -22,11 +22,8 @@ class MergingComputation(Computation):
         self.mapSize_py = [msg.info.width, msg.info.height]
         self.mapResolution = msg.info.resolution
         self.mapOrigin = [-int(msg.info.origin.position.x),-int(msg.info.origin.position.y)]
-        self.mapOrigin = [5 , 5]
         self.robot_radius_in_cells = ceil(self.robot_radius/msg.info.resolution)
         self.robot_radius_in_cells+=1
-    
-
 
     def updateToMerged(self, comp):
         comp.tf_map_frame = 'world'
@@ -59,7 +56,7 @@ class MergingComputation(Computation):
         map_data[np.logical_and(img_dilatefree==255,map_data == 0)]= -1
 
 
-         # DILATE UNK
+        # DILATE UNK
         # kernel = np.ones((5,5), np.uint8)
         bound = np.array(map_data ==0, dtype=np.uint8)
         img_dilate = cv2.dilate(bound.copy(), kernel, iterations=1)
@@ -105,18 +102,29 @@ class MergingComputation(Computation):
                 (trans,rot) = listener.lookupTransform(self.tf_map_frame, comp.tf_robot_frame, rospy.Time(0))
                 #pos in image pixels
                 robot_pos = np.double([trans[0]/self.mapResolution,trans[1]/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
+                robot_pos = np.round(robot_pos).astype(int)
                 #do not remove because it cv2 pointPolygonTest produces an error.
-                robot_pos = (int(robot_pos[0]), int(robot_pos[1]))
+                #robot_pos = (int(robot_pos[0]), int(robot_pos[1]))
 
                 robot_positions.append(robot_pos)
             except:
                 print("Error getting pos of {}".format(comp.namespace))
                 pass
 
-        # boundary[107][109] = 200
-        plt.imshow(boundary)
+        ##########
+        robot_position= np.double([1/self.mapResolution,2/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
+        robot_position = np.round(robot_position).astype(int)
+        robot_positions[1]=robot_position
+        bou = boundary.copy()
+        x = robot_positions[1][0]
+        y = robot_positions[1][1]
+        print("{} {}".format(x,y))
+        bou[:,y] = 2
+        plt.imshow(bou, cmap='gray')
         plt.show()
-        #find outer side of outer contour
+        ###############
+
+        #find outer side of outer contour 
         for i, hierarchy_vec in enumerate(hierarchy[0]):
             if(hierarchy_vec[3]==-1):
                 #check if 1st  robot is inside:
@@ -225,13 +233,9 @@ if __name__=='__main__':
     computation_tb1 = Computation(ns='tb3_1')
 
     mc = MergingComputation([computation_tb0, computation_tb1])
-
     rate = rospy.Rate(0.25)
     
     while not rospy.is_shutdown():
         
         mc.publish_data()
         rate.sleep()
-
-
-    rospy.spin()
