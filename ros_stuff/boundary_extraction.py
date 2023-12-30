@@ -27,6 +27,9 @@ class Computation():
         self.tf_robot_frame = self.namespace +'/base_footprint'
         self.map_topic = self.namespace +'/map'
 
+        #TF LISTENER
+        self.listener = tf.TransformListener()
+
 
         # MAP SUBSCRIBER
         self.map_sub = rospy.Subscriber(self.map_topic,OccupancyGrid,self.map_msg_callback)
@@ -189,14 +192,14 @@ class Computation():
 
         #GET ROBOT POSITION
         try:
-            (trans,rot) = listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
+            (trans,rot) =  self.listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
             #pos in image pixels
             robot_position= np.double([trans[0]/self.mapResolution,trans[1]/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
             robot_position = np.round(robot_position).astype(int)
             #do not remove because it cv2 pointPolygonTest produces an error.
             robot_position = (int(robot_position[0]), int(robot_position[1]))
         except:
-            pass
+            print("Error: Cannot get {}'s positions".format(self.namespace))
 
         #find outer side of outer contour
         for i, hierarchy_vec in enumerate(hierarchy[0]):
@@ -345,7 +348,7 @@ class Computation():
             prefiltered_map  = self.prefilter_map(self.map_data_tmp,self.mapSize_py)
             # # GET ROBOT POSITION
             # try:
-            #     (trans,rot) = listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
+            #     (trans,rot) =  self.listener.lookupTransform(self.tf_map_frame, self.tf_robot_frame, rospy.Time(0))
             #     #pos in image pixels
             #     self.position= np.double([trans[0]/self.mapResolution,trans[1]/self.mapResolution]) + np.double(self.mapOrigin)/self.mapResolution
             #     self.position = self.position.astype(int)
@@ -402,8 +405,7 @@ class Computation():
 if __name__=='__main__':
 
     rospy.init_node('boundary_comp_node', anonymous=True)
-    listener = tf.TransformListener()
-
+    
     computation = Computation('tb3_0')
     rate = rospy.Rate(0.2)
     
@@ -412,8 +414,4 @@ if __name__=='__main__':
         computation.publish_data()
         
         rate.sleep()
-
-
-    rospy.spin()
-
 

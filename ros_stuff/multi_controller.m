@@ -12,8 +12,8 @@ rosinit
 
 global hm_cell q_front_cell robot_pos_cell namespace K_ang K_lin 
 hm_cell = {HarmonicMap(); HarmonicMap()};
-K_ang = 0.5;
-K_lin = 0.04;
+K_ang = 0.25;
+K_lin = 0.08;
 
 namespace ={ 'tb3_0', 'tb3_1'};
 robot_pos_cell= cell(1,2);
