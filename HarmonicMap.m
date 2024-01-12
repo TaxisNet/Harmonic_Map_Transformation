@@ -584,25 +584,35 @@ classdef HarmonicMap < handle
                 obj.plotMap()
 
                 %Starting point
+                
                 p_0 = ginput(1);
                 obj.fig;
                 subplot(121)
+                hold on
                 plot(p_0(1),p_0(2),'ko','MarkerSize', 7)
+                hold off
                 q_0 = obj.map(p_0);
                 % q_d is the image of p_d=[x_d;y_d] and J_d is the Jacobian of the mapping
                 subplot(122)
+                hold on
                 plot(q_0(1),q_0(2),'ko','MarkerSize', 7)
+                hold off
 
 
                 %Destination point
                 p_d = ginput(1);
                 obj.fig;
                 subplot(121)
+                hold on
                 plot(p_d(1),p_d(2),'kx','MarkerSize', 10)
+                hold off
                 q_d = obj.map(p_d);
                 % q_d is the image of p_d=[x_d;y_d]
                 subplot(122)
+                hold on
                 plot(q_d(1),q_d(2),'kx','MarkerSize', 10)
+                hold off
+
 
                 options = odeset('abstol',1e-6,'reltol',1e-6,'events',@my_event);
                 [t,p] = ode15s(@system_kin,[0,obj.maxTime],[p_0(1);p_0(2)],options);
@@ -616,9 +626,13 @@ classdef HarmonicMap < handle
 
                 obj.fig;
                 subplot(121)
-                plot(p(:,1),p(:,2),'k','linewidth',1)
+                hold on
+                plot(p(:,1),p(:,2),'r','linewidth',1)
+                hold off
                 subplot(122)
+                hold on
                 plot(q_points(:,1),q_points(:,2),'r','linewidth',1)
+                hold off
             else
                 q_0 = obj.map(p_0);
                 q_d = obj.map(p_d);
@@ -632,25 +646,26 @@ classdef HarmonicMap < handle
                 end
                 
                 if (nargin==4 && vis)
+
                     obj.plotMap()
                     obj.fig;
                     %plot p0 & q0
-                    subplot(121)
-                    plot(p_0(1),p_0(2),'ko','MarkerSize', 7)
-                    subplot(122)
-                    plot(q_0(1),q_0(2),'ko','MarkerSize', 7)
-                    
                     %plot pd & qd
-                    subplot(121)
-                    plot(p_d(1),p_d(2),'kx','MarkerSize', 10)
-                    subplot(122)
-                    plot(q_d(1),q_d(2),'kx','MarkerSize', 10)
-                    
                     %plot p path and q path
+
                     subplot(121)
-                    plot(p(:,1),p(:,2),'k','linewidth',1)
+                    hold on
+                    plot(p_0(1),p_0(2),'ko','MarkerSize', 7)
+                    plot(p_d(1),p_d(2),'kx','MarkerSize', 10)
+                    plot(p(:,1),p(:,2),'r','linewidth',1)
+                    hold off
                     subplot(122)
+                    hold on
+                    plot(q_0(1),q_0(2),'ko','MarkerSize', 7)
+                    plot(q_d(1),q_d(2),'kx','MarkerSize', 10)
                     plot(q_points(:,1),q_points(:,2),'r','linewidth',1)
+                    hold off
+
                 end
             end
             p_path = p;
